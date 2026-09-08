@@ -1,0 +1,1230 @@
+{
+  "version": 1,
+  "sprints": [
+    {
+      "index": 0,
+      "jhd": 10,
+      "amclct": 70,
+      "dateFrom": "2025-11-28",
+      "dateTo": "2025-12-11",
+      "quarter": "Q4 2025",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 1,
+      "jhd": 11,
+      "amclct": 71,
+      "dateFrom": "2025-12-12",
+      "dateTo": "2025-12-30",
+      "quarter": "Q4 2025",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 2,
+      "jhd": 12,
+      "amclct": 72,
+      "dateFrom": "2026-01-12",
+      "dateTo": "2026-01-22",
+      "quarter": "Q1 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 3,
+      "jhd": 13,
+      "amclct": 73,
+      "dateFrom": "2026-01-23",
+      "dateTo": "2026-02-05",
+      "quarter": "Q1 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 4,
+      "jhd": 14,
+      "amclct": 74,
+      "dateFrom": "2026-02-06",
+      "dateTo": "2026-02-19",
+      "quarter": "Q1 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 5,
+      "jhd": 15,
+      "amclct": 75,
+      "dateFrom": "2026-02-20",
+      "dateTo": "2026-03-05",
+      "quarter": "Q1 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 6,
+      "jhd": 16,
+      "amclct": 76,
+      "dateFrom": "2026-03-06",
+      "dateTo": "2026-03-19",
+      "quarter": "Q1 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 7,
+      "jhd": 17,
+      "amclct": 77,
+      "dateFrom": "2026-03-20",
+      "dateTo": "2026-04-02",
+      "quarter": "Q1 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 8,
+      "jhd": 18,
+      "amclct": 78,
+      "dateFrom": "2026-04-03",
+      "dateTo": "2026-04-16",
+      "quarter": "Q2 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 9,
+      "jhd": 19,
+      "amclct": 79,
+      "dateFrom": "2026-04-17",
+      "dateTo": "2026-04-30",
+      "quarter": "Q2 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 10,
+      "jhd": 20,
+      "amclct": 80,
+      "dateFrom": "2026-05-01",
+      "dateTo": "2026-05-14",
+      "quarter": "Q2 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 11,
+      "jhd": 21,
+      "amclct": 81,
+      "dateFrom": "2026-05-15",
+      "dateTo": "2026-05-28",
+      "quarter": "Q2 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 12,
+      "jhd": 22,
+      "amclct": 82,
+      "dateFrom": "2026-05-29",
+      "dateTo": "2026-06-11",
+      "quarter": "Q2 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 13,
+      "jhd": 23,
+      "amclct": 83,
+      "dateFrom": "2026-06-12",
+      "dateTo": "2026-06-25",
+      "quarter": "Q2 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 14,
+      "jhd": 24,
+      "amclct": 84,
+      "dateFrom": "2026-06-26",
+      "dateTo": "2026-07-09",
+      "quarter": "Q3 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 15,
+      "jhd": 25,
+      "amclct": 85,
+      "dateFrom": "2026-07-10",
+      "dateTo": "2026-07-23",
+      "quarter": "Q3 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 16,
+      "jhd": 26,
+      "amclct": 86,
+      "dateFrom": "2026-07-24",
+      "dateTo": "2026-08-06",
+      "quarter": "Q3 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 17,
+      "jhd": 27,
+      "amclct": 87,
+      "dateFrom": "2026-08-07",
+      "dateTo": "2026-08-20",
+      "quarter": "Q3 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 18,
+      "jhd": 28,
+      "amclct": 88,
+      "dateFrom": "2026-08-21",
+      "dateTo": "2026-09-03",
+      "quarter": "Q3 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 19,
+      "jhd": 29,
+      "amclct": 89,
+      "dateFrom": "2026-09-04",
+      "dateTo": "2026-09-17",
+      "quarter": "Q3 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 20,
+      "jhd": 30,
+      "amclct": 90,
+      "dateFrom": "2026-09-18",
+      "dateTo": "2026-10-01",
+      "quarter": "Q3 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 21,
+      "jhd": 31,
+      "amclct": 91,
+      "dateFrom": "2026-10-02",
+      "dateTo": "2026-10-15",
+      "quarter": "Q4 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 22,
+      "jhd": 32,
+      "amclct": 92,
+      "dateFrom": "2026-10-16",
+      "dateTo": "2026-10-29",
+      "quarter": "Q4 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 23,
+      "jhd": 33,
+      "amclct": 93,
+      "dateFrom": "2026-10-30",
+      "dateTo": "2026-11-12",
+      "quarter": "Q4 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 24,
+      "jhd": 34,
+      "amclct": 94,
+      "dateFrom": "2026-11-13",
+      "dateTo": "2026-11-26",
+      "quarter": "Q4 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 25,
+      "jhd": 35,
+      "amclct": 95,
+      "dateFrom": "2026-11-27",
+      "dateTo": "2026-12-10",
+      "quarter": "Q4 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 26,
+      "jhd": 36,
+      "amclct": 96,
+      "dateFrom": "2026-12-11",
+      "dateTo": "2026-12-24",
+      "quarter": "Q4 2026",
+      "flags": {
+        "freeze": true,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 27,
+      "jhd": 37,
+      "amclct": 97,
+      "dateFrom": "2026-12-25",
+      "dateTo": "2026-12-31",
+      "quarter": "Q4 2026",
+      "flags": {
+        "freeze": false,
+        "holiday": true,
+        "custom": null
+      }
+    },
+    {
+      "index": 28,
+      "jhd": 38,
+      "amclct": 98,
+      "dateFrom": "2027-01-01",
+      "dateTo": "2027-01-14",
+      "quarter": "Q1 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 29,
+      "jhd": 39,
+      "amclct": 99,
+      "dateFrom": "2027-01-15",
+      "dateTo": "2027-01-28",
+      "quarter": "Q1 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 30,
+      "jhd": 40,
+      "amclct": 100,
+      "dateFrom": "2027-01-29",
+      "dateTo": "2027-02-11",
+      "quarter": "Q1 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 31,
+      "jhd": 41,
+      "amclct": 101,
+      "dateFrom": "2027-02-12",
+      "dateTo": "2027-02-25",
+      "quarter": "Q1 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 32,
+      "jhd": 42,
+      "amclct": 102,
+      "dateFrom": "2027-02-26",
+      "dateTo": "2027-03-11",
+      "quarter": "Q1 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 33,
+      "jhd": 43,
+      "amclct": 103,
+      "dateFrom": "2027-03-12",
+      "dateTo": "2027-03-25",
+      "quarter": "Q1 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 34,
+      "jhd": 44,
+      "amclct": 104,
+      "dateFrom": "2027-03-26",
+      "dateTo": "2027-04-08",
+      "quarter": "Q1 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 35,
+      "jhd": 45,
+      "amclct": 105,
+      "dateFrom": "2027-04-09",
+      "dateTo": "2027-04-22",
+      "quarter": "Q2 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 36,
+      "jhd": 46,
+      "amclct": 106,
+      "dateFrom": "2027-04-23",
+      "dateTo": "2027-05-06",
+      "quarter": "Q2 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 37,
+      "jhd": 47,
+      "amclct": 107,
+      "dateFrom": "2027-05-07",
+      "dateTo": "2027-05-20",
+      "quarter": "Q2 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 38,
+      "jhd": 48,
+      "amclct": 108,
+      "dateFrom": "2027-05-21",
+      "dateTo": "2027-06-03",
+      "quarter": "Q2 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 39,
+      "jhd": 49,
+      "amclct": 109,
+      "dateFrom": "2027-06-04",
+      "dateTo": "2027-06-17",
+      "quarter": "Q2 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 40,
+      "jhd": 50,
+      "amclct": 110,
+      "dateFrom": "2027-06-18",
+      "dateTo": "2027-07-01",
+      "quarter": "Q2 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 41,
+      "jhd": 51,
+      "amclct": 111,
+      "dateFrom": "2027-07-02",
+      "dateTo": "2027-07-15",
+      "quarter": "Q3 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 42,
+      "jhd": 52,
+      "amclct": 112,
+      "dateFrom": "2027-07-16",
+      "dateTo": "2027-07-29",
+      "quarter": "Q3 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 43,
+      "jhd": 53,
+      "amclct": 113,
+      "dateFrom": "2027-07-30",
+      "dateTo": "2027-08-12",
+      "quarter": "Q3 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 44,
+      "jhd": 54,
+      "amclct": 114,
+      "dateFrom": "2027-08-13",
+      "dateTo": "2027-08-26",
+      "quarter": "Q3 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 45,
+      "jhd": 55,
+      "amclct": 115,
+      "dateFrom": "2027-08-27",
+      "dateTo": "2027-09-09",
+      "quarter": "Q3 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 46,
+      "jhd": 56,
+      "amclct": 116,
+      "dateFrom": "2027-09-10",
+      "dateTo": "2027-09-23",
+      "quarter": "Q3 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 47,
+      "jhd": 57,
+      "amclct": 117,
+      "dateFrom": "2027-09-24",
+      "dateTo": "2027-10-07",
+      "quarter": "Q3 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 48,
+      "jhd": 58,
+      "amclct": 118,
+      "dateFrom": "2027-10-08",
+      "dateTo": "2027-10-21",
+      "quarter": "Q4 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 49,
+      "jhd": 59,
+      "amclct": 119,
+      "dateFrom": "2027-10-22",
+      "dateTo": "2027-11-04",
+      "quarter": "Q4 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 50,
+      "jhd": 60,
+      "amclct": 120,
+      "dateFrom": "2027-11-05",
+      "dateTo": "2027-11-18",
+      "quarter": "Q4 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 51,
+      "jhd": 61,
+      "amclct": 121,
+      "dateFrom": "2027-11-19",
+      "dateTo": "2027-12-02",
+      "quarter": "Q4 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 52,
+      "jhd": 62,
+      "amclct": 122,
+      "dateFrom": "2027-12-03",
+      "dateTo": "2027-12-16",
+      "quarter": "Q4 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 53,
+      "jhd": 63,
+      "amclct": 123,
+      "dateFrom": "2027-12-17",
+      "dateTo": "2027-12-30",
+      "quarter": "Q4 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 54,
+      "jhd": 64,
+      "amclct": 124,
+      "dateFrom": "2027-12-31",
+      "dateTo": "2028-01-13",
+      "quarter": "Q4 2027",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 55,
+      "jhd": 65,
+      "amclct": 125,
+      "dateFrom": "2028-01-14",
+      "dateTo": "2028-01-27",
+      "quarter": "Q1 2028",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 56,
+      "jhd": 66,
+      "amclct": 126,
+      "dateFrom": "2028-01-28",
+      "dateTo": "2028-02-10",
+      "quarter": "Q1 2028",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 57,
+      "jhd": 67,
+      "amclct": 127,
+      "dateFrom": "2028-02-11",
+      "dateTo": "2028-02-24",
+      "quarter": "Q1 2028",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 58,
+      "jhd": 68,
+      "amclct": 128,
+      "dateFrom": "2028-02-25",
+      "dateTo": "2028-03-09",
+      "quarter": "Q1 2028",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    },
+    {
+      "index": 59,
+      "jhd": 69,
+      "amclct": 129,
+      "dateFrom": "2028-03-10",
+      "dateTo": "2028-03-23",
+      "quarter": "Q1 2028",
+      "flags": {
+        "freeze": false,
+        "holiday": false,
+        "custom": null
+      }
+    }
+  ],
+  "teams": [
+    {
+      "id": "AMCLCT",
+      "name": "AM Collection",
+      "shortName": "AMCLCT"
+    },
+    {
+      "id": "JHD",
+      "name": "Johnny Debt",
+      "shortName": "JHD"
+    }
+  ],
+  "people": [
+    {
+      "id": "p-design",
+      "name": "Смирнова О.",
+      "role": "design",
+      "allocations": [
+        {
+          "team": "AMCLCT",
+          "share": 0.5
+        },
+        {
+          "team": "JHD",
+          "share": 0.5
+        }
+      ],
+      "absences": []
+    },
+    {
+      "id": "p-android-am",
+      "name": "Ковалёв Д.",
+      "role": "android",
+      "allocations": [
+        {
+          "team": "AMCLCT",
+          "share": 1
+        }
+      ],
+      "absences": []
+    },
+    {
+      "id": "p-android-jhd",
+      "name": "Носов П.",
+      "role": "android",
+      "allocations": [
+        {
+          "team": "JHD",
+          "share": 1
+        }
+      ],
+      "absences": []
+    },
+    {
+      "id": "p-ios",
+      "name": "Гареева Л.",
+      "role": "ios",
+      "allocations": [
+        {
+          "team": "AMCLCT",
+          "share": 0.5
+        },
+        {
+          "team": "JHD",
+          "share": 0.5
+        }
+      ],
+      "absences": []
+    },
+    {
+      "id": "p-web",
+      "name": "Тарасов К.",
+      "role": "web",
+      "allocations": [
+        {
+          "team": "AMCLCT",
+          "share": 0.5
+        },
+        {
+          "team": "JHD",
+          "share": 0.5
+        }
+      ],
+      "absences": [
+        19
+      ]
+    },
+    {
+      "id": "p-midl-am",
+      "name": "Крылова Е.",
+      "role": "midl",
+      "allocations": [
+        {
+          "team": "AMCLCT",
+          "share": 1
+        }
+      ],
+      "absences": []
+    },
+    {
+      "id": "p-midl-jhd",
+      "name": "Фадеев Р.",
+      "role": "midl",
+      "allocations": [
+        {
+          "team": "JHD",
+          "share": 1
+        }
+      ],
+      "absences": []
+    },
+    {
+      "id": "p-analytics-am",
+      "name": "Орлова Н.",
+      "role": "analytics",
+      "allocations": [
+        {
+          "team": "AMCLCT",
+          "share": 1
+        }
+      ],
+      "absences": []
+    },
+    {
+      "id": "p-analytics-jhd",
+      "name": "Белов С.",
+      "role": "analytics",
+      "allocations": [
+        {
+          "team": "JHD",
+          "share": 1
+        }
+      ],
+      "absences": []
+    },
+    {
+      "id": "p-testing-am",
+      "name": "Юдина М.",
+      "role": "testing",
+      "allocations": [
+        {
+          "team": "AMCLCT",
+          "share": 1
+        }
+      ],
+      "absences": []
+    },
+    {
+      "id": "p-testing-jhd",
+      "name": "Соколов И.",
+      "role": "testing",
+      "allocations": [
+        {
+          "team": "JHD",
+          "share": 1
+        }
+      ],
+      "absences": []
+    },
+    {
+      "id": "p-rollout-am",
+      "name": "Волкова Т.",
+      "role": "rollout",
+      "allocations": [
+        {
+          "team": "AMCLCT",
+          "share": 1
+        }
+      ],
+      "absences": []
+    },
+    {
+      "id": "p-rollout-jhd",
+      "name": "Гринёв А.",
+      "role": "rollout",
+      "allocations": [
+        {
+          "team": "JHD",
+          "share": 1
+        }
+      ],
+      "absences": []
+    }
+  ],
+  "epics": [
+    {
+      "id": "epic-1",
+      "title": "AMCLCT. Витрина залогового имущества",
+      "team": "AMCLCT",
+      "enabled": true,
+      "status": "разработка",
+      "effectYear": 45000000,
+      "effect2026": 12000000,
+      "effectKind": "Балансы",
+      "needsKb": true,
+      "notes": "Демо-данные фазы 1: разрыв в колбаске мидла (19-20, пропуск 21, 22-23).",
+      "links": [],
+      "segments": [
+        {
+          "id": "epic-1-design-1",
+          "role": "design",
+          "from": 18,
+          "to": 19,
+          "label": "дизайн-макеты",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-1-web-1",
+          "role": "web",
+          "from": 19,
+          "to": 21,
+          "label": "вёрстка витрины",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-1-midl-1",
+          "role": "midl",
+          "from": 19,
+          "to": 20,
+          "label": "бэк: карточка залога",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-1-midl-2",
+          "role": "midl",
+          "from": 22,
+          "to": 23,
+          "label": "бэк: доработка после ревью смежников",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-1-analytics-1",
+          "role": "analytics",
+          "from": 19,
+          "to": 20,
+          "label": "требования",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-1-testing-1",
+          "role": "testing",
+          "from": 23,
+          "to": 24,
+          "label": "тестирование",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-1-rollout-1",
+          "role": "rollout",
+          "from": 24,
+          "to": 25,
+          "label": "раскатка волнами",
+          "color": null,
+          "flag": null
+        }
+      ]
+    },
+    {
+      "id": "epic-2",
+      "title": "JHD. Предмет залога. Витрина",
+      "team": "JHD",
+      "enabled": true,
+      "status": "раскатка",
+      "effectYear": 30000000,
+      "effect2026": 8000000,
+      "effectKind": "Сборы",
+      "needsKb": false,
+      "notes": "Демо-данные фазы 1: раскатка заезжает в кодфриз (спринт 36/96).",
+      "links": [],
+      "segments": [
+        {
+          "id": "epic-2-design-1",
+          "role": "design",
+          "from": 20,
+          "to": 21,
+          "label": "дизайн",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-2-android-1",
+          "role": "android",
+          "from": 21,
+          "to": 23,
+          "label": "мобильная разработка",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-2-midl-1",
+          "role": "midl",
+          "from": 21,
+          "to": 23,
+          "label": "бэк",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-2-testing-1",
+          "role": "testing",
+          "from": 24,
+          "to": 25,
+          "label": "тестирование",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-2-rollout-1",
+          "role": "rollout",
+          "from": 25,
+          "to": 27,
+          "label": "раскатка — упирается в фриз",
+          "color": null,
+          "flag": "risk"
+        }
+      ]
+    },
+    {
+      "id": "epic-3",
+      "title": "AMCLCT. Автоматизация звонков",
+      "team": "AMCLCT",
+      "enabled": true,
+      "status": "разработка",
+      "effectYear": null,
+      "effect2026": null,
+      "effectKind": null,
+      "needsKb": true,
+      "notes": "Демо-данные фазы 1: нулевой эффект в этом году, идёт в текущем квартале — кандидат на перенос.",
+      "links": [],
+      "segments": [
+        {
+          "id": "epic-3-design-1",
+          "role": "design",
+          "from": 18,
+          "to": 19,
+          "label": "дизайн сценария звонка",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-3-web-1",
+          "role": "web",
+          "from": 19,
+          "to": 20,
+          "label": "кабинет оператора",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-3-midl-1",
+          "role": "midl",
+          "from": 19,
+          "to": 21,
+          "label": "бэк интеграции с телефонией",
+          "color": null,
+          "flag": null
+        }
+      ]
+    },
+    {
+      "id": "epic-4",
+      "title": "JHD. ЕК интеграция скоринга",
+      "team": "JHD",
+      "enabled": true,
+      "status": "тест",
+      "effectYear": 15000000,
+      "effect2026": 15000000,
+      "effectKind": "Экономия",
+      "needsKb": false,
+      "notes": "Демо-данные фазы 1: строка роли ЕК — показывает пересечение со смежной командой.",
+      "links": [
+        {
+          "title": "Дискавери в Confluence",
+          "url": "https://example.internal/discovery"
+        }
+      ],
+      "segments": [
+        {
+          "id": "epic-4-analytics-1",
+          "role": "analytics",
+          "from": 17,
+          "to": 18,
+          "label": "требования к скорингу",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-4-midl-1",
+          "role": "midl",
+          "from": 17,
+          "to": 19,
+          "label": "бэк",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-4-ek-1",
+          "role": "ek",
+          "from": 18,
+          "to": 19,
+          "label": "интеграция со стороны ЕК",
+          "color": null,
+          "flag": null
+        },
+        {
+          "id": "epic-4-testing-1",
+          "role": "testing",
+          "from": 19,
+          "to": 20,
+          "label": "тестирование",
+          "color": null,
+          "flag": null
+        }
+      ]
+    }
+  ],
+  "scenarios": [],
+  "settings": {
+    "thresholds": {
+      "fullStakeWarn": 2,
+      "fullStakeRed": 3,
+      "halfStakeRed": 2
+    },
+    "rolloutDeadlineOffsetFromFreeze": 3,
+    "colors": {
+      "business": "#B7B7B7",
+      "grooming": "#D9D9D9",
+      "design": "#B6D7A8",
+      "android": "#D9D2E9",
+      "ios": "#351C75",
+      "web": "#8E7CC3",
+      "midl": "#783F04",
+      "analytics": "#CFE2F3",
+      "testing": "#F9CB9C",
+      "ek": "#990000",
+      "rollout": "#3C78D8",
+      "docs": "#FFD966"
+    }
+  }
+}
