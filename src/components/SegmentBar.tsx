@@ -1,14 +1,15 @@
 import type { Segment } from '../types';
 import { roleColor } from '../lib/roles';
 import { contrastTextColor, hexToRgba } from '../lib/color';
-import type { OverlapStatus } from '../lib/overlaps';
+import type { LoadStatus } from '../lib/load';
 
 interface Props {
   segment: Segment;
   colWidth: number;
   from: number; // отображаемая позиция (может отличаться от segment.from во время перетаскивания)
   to: number;
-  overlapStatus: OverlapStatus | null;
+  status: LoadStatus | null;
+  spotlight: boolean;
   isDragging: boolean;
   onBodyPointerDown: (e: React.PointerEvent) => void;
   onLeftHandlePointerDown: (e: React.PointerEvent) => void;
@@ -23,7 +24,8 @@ export default function SegmentBar({
   colWidth,
   from,
   to,
-  overlapStatus,
+  status,
+  spotlight,
   isDragging,
   onBodyPointerDown,
   onLeftHandlePointerDown,
@@ -36,7 +38,8 @@ export default function SegmentBar({
 
   const classes = ['segment-bar'];
   if (segment.flag === 'risk') classes.push('risk');
-  if (overlapStatus) classes.push(`overlap-${overlapStatus}`);
+  if (status) classes.push(`overlap-${status}`);
+  if (spotlight) classes.push('spotlight');
   if (isDragging) classes.push('dragging');
 
   return (

@@ -119,9 +119,8 @@ export interface Scenario {
 }
 
 export interface RiskThresholds {
-  fullStakeWarn: number; // число эпиков, при котором роль на полной ставке — жёлтая
-  fullStakeRed: number; // и больше — красная
-  halfStakeRed: number; // число эпиков, при котором совмещённая роль — красная
+  okPerPerson: number; // сколько параллельных задач на человека ещё считаем нормой
+  okPerPersonShared: number; // то же для совмещённых людей (0,5 на две команды)
 }
 
 export interface Settings {

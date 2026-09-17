@@ -108,6 +108,15 @@ export function freezeIndex(sprints: Sprint[]): number | null {
   return s ? s.index : null;
 }
 
+/** Индекс спринта, в котором мы сейчас. Если попали в промежуток — ближайший будущий. */
+export function currentSprintIndex(sprints: Sprint[]): number {
+  const today = new Date().toISOString().slice(0, 10);
+  const inside = sprints.find((s) => s.dateFrom <= today && today <= s.dateTo);
+  if (inside) return inside.index;
+  const upcoming = sprints.find((s) => s.dateFrom > today);
+  return upcoming ? upcoming.index : -1;
+}
+
 // Индекс первого спринта текущего квартала — всё раньше считается «прошедшим».
 export function currentQuarterCutoffIndex(sprints: Sprint[]): number {
   const label = quarterOf(new Date());

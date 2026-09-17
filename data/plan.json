@@ -964,6 +964,18 @@
         }
       ],
       "absences": []
+    },
+    {
+      "id": "p-midl-am-2",
+      "name": "Сафин Т.",
+      "role": "midl",
+      "allocations": [
+        {
+          "team": "AMCLCT",
+          "share": 1
+        }
+      ],
+      "absences": []
     }
   ],
   "epics": [
@@ -1207,9 +1219,8 @@
   "scenarios": [],
   "settings": {
     "thresholds": {
-      "fullStakeWarn": 2,
-      "fullStakeRed": 3,
-      "halfStakeRed": 2
+      "okPerPerson": 2,
+      "okPerPersonShared": 1
     },
     "rolloutDeadlineOffsetFromFreeze": 3,
     "colors": {

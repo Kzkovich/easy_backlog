@@ -1,13 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Epic, Plan } from './types';
 import Grid from './components/Grid';
 import EpicFormPanel from './components/EpicFormPanel';
+import TeamsPanel from './components/TeamsPanel';
+import LoadPanel, { type LoadHighlight } from './components/LoadPanel';
 import { parsePlanWorkbook } from './lib/xlsxImport';
+import { computeLoad } from './lib/load';
+import { currentQuarterCutoffIndex, currentSprintIndex } from './lib/calendar';
 
 type ZoomLevel = 'compact' | 'normal' | 'large';
 const ZOOM_WIDTH: Record<ZoomLevel, number> = { compact: 64, normal: 92, large: 130 };
 type ViewMode = 'detailed' | 'management';
 type TeamFilter = 'ALL' | 'AMCLCT' | 'JHD';
+type Theme = 'light' | 'dark' | 'auto';
 
 export default function App() {
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -18,10 +23,22 @@ export default function App() {
   const [mode, setMode] = useState<ViewMode>('detailed');
   const [teamFilter, setTeamFilter] = useState<TeamFilter>('ALL');
   const [hidePast, setHidePast] = useState(true);
+  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('kolbaski-theme') as Theme) || 'light');
+  const [showLoad, setShowLoad] = useState(true);
+  const [showTeams, setShowTeams] = useState(false);
+  const [highlight, setHighlight] = useState<LoadHighlight | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [panelTarget, setPanelTarget] = useState<string | 'new' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const gridScrollRef = useRef<HTMLDivElement>(null);
+  const loadScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('kolbaski-theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     fetch('/api/plan')
@@ -95,6 +112,11 @@ export default function App() {
   const visibleEpics: Epic[] =
     plan?.epics.filter((e) => teamFilter === 'ALL' || e.team === teamFilter || e.team === 'BOTH') ?? [];
 
+  const load = useMemo(() => (plan ? computeLoad(plan) : null), [plan]);
+  const cutoffIndex = plan ? (hidePast ? currentQuarterCutoffIndex(plan.sprints) : 0) : 0;
+  const currentSprint = plan ? currentSprintIndex(plan.sprints) : -1;
+  const visibleSprints = plan ? plan.sprints.slice(cutoffIndex) : [];
+
   function handleSaveEpic(epic: Epic) {
     updatePlan((p) => {
       const exists = p.epics.some((e) => e.id === epic.id);
@@ -109,6 +131,8 @@ export default function App() {
     updatePlan((p) => ({ ...p, epics: p.epics.filter((e) => e.id !== panelEpic.id) }));
     setPanelTarget(null);
   }
+
+  const themeLabel = theme === 'light' ? '☼' : theme === 'dark' ? '☾' : '◐';
 
   return (
     <div className="app">
@@ -148,6 +172,19 @@ export default function App() {
         <button className={`btn${hidePast ? ' active' : ''}`} onClick={() => setHidePast((v) => !v)}>
           {hidePast ? 'прошедшие скрыты' : 'показать прошедшие'}
         </button>
+        <button className={`btn${showTeams ? ' active' : ''}`} onClick={() => setShowTeams((v) => !v)} disabled={!plan}>
+          Команды
+        </button>
+        <button className={`btn${showLoad ? ' active' : ''}`} onClick={() => setShowLoad((v) => !v)}>
+          Загрузка
+        </button>
+        <button
+          className="btn icon"
+          title={`Тема: ${theme === 'light' ? 'светлая' : theme === 'dark' ? 'тёмная' : 'системная'}`}
+          onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'auto' : 'light')}
+        >
+          {themeLabel}
+        </button>
         <div className="spacer" />
         <span className={`status-line${error ? ' error' : ''}`}>
           {error ?? (dirty ? 'есть несохранённые изменения' : plan ? 'сохранено' : '')}
@@ -166,24 +203,52 @@ export default function App() {
       )}
 
       <div className="main-area">
-        {loading && <div className="empty-state">Загрузка…</div>}
-        {!loading && error && !plan && <div className="empty-state">{error}</div>}
-        {!loading && plan && plan.epics.length === 0 && (
-          <div className="empty-state">Эпиков пока нет. Импортируйте план из Excel или нажмите «+ Новая фича».</div>
-        )}
-        {!loading && plan && plan.epics.length > 0 && visibleEpics.length === 0 && (
-          <div className="empty-state">Нет фич для выбранной команды.</div>
-        )}
-        {!loading && plan && visibleEpics.length > 0 && (
-          <Grid
-            plan={plan}
-            visibleEpics={visibleEpics}
-            colWidth={ZOOM_WIDTH[zoom]}
-            mode={mode}
-            hidePast={hidePast}
-            updatePlan={updatePlan}
-            onEditEpic={setPanelTarget}
-          />
+        <div className="center-column">
+          {loading && <div className="empty-state">Загрузка…</div>}
+          {!loading && error && !plan && <div className="empty-state">{error}</div>}
+          {!loading && plan && plan.epics.length === 0 && (
+            <div className="empty-state">Эпиков пока нет. Импортируйте план из Excel или нажмите «+ Новая фича».</div>
+          )}
+          {!loading && plan && plan.epics.length > 0 && visibleEpics.length === 0 && (
+            <div className="empty-state">Нет фич для выбранной команды.</div>
+          )}
+          {!loading && plan && load && visibleEpics.length > 0 && (
+            <Grid
+              plan={plan}
+              visibleEpics={visibleEpics}
+              colWidth={ZOOM_WIDTH[zoom]}
+              mode={mode}
+              cutoffIndex={cutoffIndex}
+              currentSprint={currentSprint}
+              load={load}
+              highlight={highlight}
+              scrollRef={gridScrollRef}
+              onHScroll={(x) => {
+                if (loadScrollRef.current) loadScrollRef.current.scrollLeft = x;
+              }}
+              updatePlan={updatePlan}
+              onEditEpic={setPanelTarget}
+            />
+          )}
+
+          {!loading && plan && load && showLoad && (
+            <LoadPanel
+              plan={plan}
+              load={load}
+              visibleSprints={visibleSprints}
+              colWidth={ZOOM_WIDTH[zoom]}
+              currentSprint={currentSprint}
+              scrollRef={loadScrollRef}
+              highlight={highlight}
+              onHighlight={setHighlight}
+              onOpenTeams={() => setShowTeams(true)}
+              onClose={() => setShowLoad(false)}
+            />
+          )}
+        </div>
+
+        {showTeams && plan && (
+          <TeamsPanel plan={plan} updatePlan={updatePlan} cutoffIndex={cutoffIndex} onClose={() => setShowTeams(false)} />
         )}
 
         {panelTarget && (

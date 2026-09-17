@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Epic, Plan, RoleId, Segment } from '../types';
 import type { RoleDef } from '../types';
 import { ROLE_DEFS } from '../lib/roles';
-import { computeOverlaps, overlapKey, scopesForEpicRole, type OverlapStatus } from '../lib/overlaps';
+import { loadKey, scopesForEpicRole, type LoadResult, type LoadStatus } from '../lib/load';
 import { epicSpan, roleDurationSprints } from '../lib/duration';
 import { clampMoveDelta, clampResizeLeft, clampResizeRight, clampEpicMoveDelta, segmentOverlapsRoleInEpic } from '../lib/dnd';
-import { currentQuarterCutoffIndex } from '../lib/calendar';
+import type { LoadHighlight } from './LoadPanel';
 import SegmentBar from './SegmentBar';
 import TextPopover from './TextPopover';
 
@@ -14,7 +14,12 @@ interface Props {
   visibleEpics: Epic[];
   colWidth: number;
   mode: 'detailed' | 'management';
-  hidePast: boolean;
+  cutoffIndex: number;
+  currentSprint: number;
+  load: LoadResult;
+  highlight: LoadHighlight | null;
+  scrollRef: React.RefObject<HTMLDivElement>;
+  onHScroll: (x: number) => void;
   updatePlan: (fn: (p: Plan) => Plan) => void;
   onEditEpic: (epicId: string) => void;
 }
@@ -58,7 +63,20 @@ function activeRolesOf(epic: Epic): RoleDef[] {
   return ROLE_DEFS.filter((r) => set.has(r.id));
 }
 
-export default function Grid({ plan, visibleEpics, colWidth, mode, hidePast, updatePlan, onEditEpic }: Props) {
+export default function Grid({
+  plan,
+  visibleEpics,
+  colWidth,
+  mode,
+  cutoffIndex,
+  currentSprint,
+  load,
+  highlight,
+  scrollRef,
+  onHScroll,
+  updatePlan,
+  onEditEpic,
+}: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [livePreview, setLivePreview] = useState<LivePreview>(null);
   const [popover, setPopover] = useState<PopoverState>(null);
@@ -67,12 +85,9 @@ export default function Grid({ plan, visibleEpics, colWidth, mode, hidePast, upd
   const clickPendingRef = useRef<{ segmentId: string; timer: number } | null>(null);
 
   const sprints = plan.sprints;
-  const cutoffIndex = hidePast ? currentQuarterCutoffIndex(sprints) : 0;
   const visibleSprints = useMemo(() => sprints.slice(cutoffIndex), [sprints, cutoffIndex]);
   const n = visibleSprints.length;
   const maxIndex = sprints.length - 1;
-
-  const overlapMap = useMemo(() => computeOverlaps(plan), [plan.epics, plan.settings]);
 
   const quarterGroups = useMemo(() => {
     const groups: { quarter: string; start: number; len: number; freeze: boolean }[] = [];
@@ -131,20 +146,28 @@ export default function Grid({ plan, visibleEpics, colWidth, mode, hidePast, upd
     return { from: dFrom, to: dTo };
   }
 
-  function segmentOverlapStatus(epic: Epic, seg: Segment): OverlapStatus | null {
-    const scopes = scopesForEpicRole(epic.team, seg.role);
-    if (scopes.length === 0) return null;
-    let worst: OverlapStatus | null = null;
+  function segmentLoadStatus(epic: Epic, seg: Segment): LoadStatus | null {
+    const scopes = scopesForEpicRole(plan, epic.team, seg.role);
+    let worst: LoadStatus | null = null;
     for (let s = seg.from; s <= seg.to; s++) {
       for (const scope of scopes) {
-        const info = overlapMap.get(overlapKey(seg.role, scope, s));
-        if (info) {
-          if (info.status === 'red') worst = 'red';
-          else if (info.status === 'warn' && worst !== 'red') worst = 'warn';
-        }
+        const cell = load.map.get(loadKey(seg.role, scope, s));
+        if (!cell) continue;
+        if (cell.status === 'over' || cell.status === 'nocap') worst = cell.status;
+        else if (cell.status === 'tight' && worst !== 'over' && worst !== 'nocap') worst = 'tight';
       }
     }
-    return worst;
+    return worst === 'tight' || worst === 'over' || worst === 'nocap' ? worst : null;
+  }
+
+  function isSpotlit(epic: Epic, seg: Segment): boolean {
+    if (!highlight) return false;
+    return (
+      highlight.role === seg.role &&
+      highlight.epicIds.includes(epic.id) &&
+      seg.from <= highlight.sprintIndex &&
+      seg.to >= highlight.sprintIndex
+    );
   }
 
   function mutateEpic(epicId: string, fn: (epic: Epic) => Epic) {
@@ -368,7 +391,7 @@ export default function Grid({ plan, visibleEpics, colWidth, mode, hidePast, upd
   let rowCounter = 3;
 
   return (
-    <div className="grid-scroll">
+    <div className="grid-scroll" ref={scrollRef} onScroll={(e) => onHScroll(e.currentTarget.scrollLeft)}>
       <div className="grid" style={{ ['--n-cols' as any]: n, ['--col-width' as any]: `${colWidth}px` }}>
         {Array.from({ length: n + 1 }, (_, i) => (
           <div key={`sl-${i}`} className="grid-marker sprint-line" style={{ left: LABEL_WIDTH + i * colWidth }} />
@@ -378,6 +401,12 @@ export default function Grid({ plan, visibleEpics, colWidth, mode, hidePast, upd
           if (col < 0 || col >= n) return null;
           return <div key={`hb-${idx}`} className="grid-marker holiday-block" style={{ left: LABEL_WIDTH + col * colWidth, width: colWidth }} />;
         })}
+        {currentSprint >= 0 && toDisplayCol(currentSprint) >= 0 && toDisplayCol(currentSprint) < n && (
+          <div
+            className="grid-marker current-block"
+            style={{ left: LABEL_WIDTH + toDisplayCol(currentSprint) * colWidth, width: colWidth }}
+          />
+        )}
         {quarterGroups.map((g) => (
           <div key={`ql-${g.start}`} className="grid-marker quarter-line" style={{ left: LABEL_WIDTH + g.start * colWidth }} />
         ))}
@@ -403,7 +432,12 @@ export default function Grid({ plan, visibleEpics, colWidth, mode, hidePast, upd
           Эпик / роль
         </div>
         {visibleSprints.map((s, i) => (
-          <div key={s.index} className="cell sprint-header-cell" style={{ gridColumn: `${i + 2} / ${i + 3}`, gridRow: 2 }}>
+          <div
+            key={s.index}
+            className={`cell sprint-header-cell${s.index === currentSprint ? ' current' : ''}`}
+            style={{ gridColumn: `${i + 2} / ${i + 3}`, gridRow: 2 }}
+          >
+            {s.index === currentSprint && <span className="now-chip">СЕЙЧАС</span>}
             <span className="nums">
               {s.jhd} / {s.amclct}
             </span>
@@ -513,7 +547,8 @@ export default function Grid({ plan, visibleEpics, colWidth, mode, hidePast, upd
                           colWidth={colWidth}
                           from={disp.from}
                           to={disp.to}
-                          overlapStatus={segmentOverlapStatus(epic, seg)}
+                          status={segmentLoadStatus(epic, seg)}
+                          spotlight={isSpotlit(epic, seg)}
                           isDragging={(livePreview?.type === 'segment' && livePreview.segmentId === seg.id) || !!isEpicDragging}
                           onBodyPointerDown={(e) => startSegmentMove(e, epic, seg)}
                           onLeftHandlePointerDown={(e) => startResizeLeft(e, epic, seg)}
