@@ -7,6 +7,7 @@ import { parsePlanWorkbook } from './lib/xlsxImport';
 type ZoomLevel = 'compact' | 'normal' | 'large';
 const ZOOM_WIDTH: Record<ZoomLevel, number> = { compact: 64, normal: 92, large: 130 };
 type ViewMode = 'detailed' | 'management';
+type TeamFilter = 'ALL' | 'AMCLCT' | 'JHD';
 
 export default function App() {
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -15,6 +16,8 @@ export default function App() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [zoom, setZoom] = useState<ZoomLevel>('normal');
   const [mode, setMode] = useState<ViewMode>('detailed');
+  const [teamFilter, setTeamFilter] = useState<TeamFilter>('ALL');
+  const [hidePast, setHidePast] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [panelTarget, setPanelTarget] = useState<string | 'new' | null>(null);
@@ -89,6 +92,9 @@ export default function App() {
   const panelEpic: Epic | null =
     panelTarget && panelTarget !== 'new' ? plan?.epics.find((e) => e.id === panelTarget) ?? null : null;
 
+  const visibleEpics: Epic[] =
+    plan?.epics.filter((e) => teamFilter === 'ALL' || e.team === teamFilter || e.team === 'BOTH') ?? [];
+
   function handleSaveEpic(epic: Epic) {
     updatePlan((p) => {
       const exists = p.epics.some((e) => e.id === epic.id);
@@ -126,12 +132,22 @@ export default function App() {
           ))}
         </div>
         <div className="zoom-group">
+          {(['ALL', 'AMCLCT', 'JHD'] as TeamFilter[]).map((t) => (
+            <button key={t} className={teamFilter === t ? 'active' : ''} onClick={() => setTeamFilter(t)}>
+              {t === 'ALL' ? 'все команды' : t === 'AMCLCT' ? 'AM Collection' : 'Johnny Debt'}
+            </button>
+          ))}
+        </div>
+        <div className="zoom-group">
           {(['compact', 'normal', 'large'] as ZoomLevel[]).map((z) => (
             <button key={z} className={zoom === z ? 'active' : ''} onClick={() => setZoom(z)}>
               {z === 'compact' ? 'компактно' : z === 'normal' ? 'обычно' : 'крупно'}
             </button>
           ))}
         </div>
+        <button className={`btn${hidePast ? ' active' : ''}`} onClick={() => setHidePast((v) => !v)}>
+          {hidePast ? 'прошедшие скрыты' : 'показать прошедшие'}
+        </button>
         <div className="spacer" />
         <span className={`status-line${error ? ' error' : ''}`}>
           {error ?? (dirty ? 'есть несохранённые изменения' : plan ? 'сохранено' : '')}
@@ -155,8 +171,19 @@ export default function App() {
         {!loading && plan && plan.epics.length === 0 && (
           <div className="empty-state">Эпиков пока нет. Импортируйте план из Excel или нажмите «+ Новая фича».</div>
         )}
-        {!loading && plan && plan.epics.length > 0 && (
-          <Grid plan={plan} colWidth={ZOOM_WIDTH[zoom]} mode={mode} updatePlan={updatePlan} onEditEpic={setPanelTarget} />
+        {!loading && plan && plan.epics.length > 0 && visibleEpics.length === 0 && (
+          <div className="empty-state">Нет фич для выбранной команды.</div>
+        )}
+        {!loading && plan && visibleEpics.length > 0 && (
+          <Grid
+            plan={plan}
+            visibleEpics={visibleEpics}
+            colWidth={ZOOM_WIDTH[zoom]}
+            mode={mode}
+            hidePast={hidePast}
+            updatePlan={updatePlan}
+            onEditEpic={setPanelTarget}
+          />
         )}
 
         {panelTarget && (

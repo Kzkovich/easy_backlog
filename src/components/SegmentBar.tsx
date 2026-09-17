@@ -1,6 +1,6 @@
 import type { Segment } from '../types';
 import { roleColor } from '../lib/roles';
-import { contrastTextColor } from '../lib/color';
+import { contrastTextColor, hexToRgba } from '../lib/color';
 import type { OverlapStatus } from '../lib/overlaps';
 
 interface Props {
@@ -42,7 +42,13 @@ export default function SegmentBar({
   return (
     <div
       className={classes.join(' ')}
-      style={{ left, width, background: bg, color: contrastTextColor(bg) }}
+      style={{
+        left,
+        width,
+        background: bg,
+        color: contrastTextColor(bg),
+        boxShadow: `0 0 calc(9px * var(--glow-strength)) ${hexToRgba(bg, 0.65)}, 0 1px 2px rgba(0,0,0,0.15)`,
+      }}
       title={segment.label || undefined}
       onDoubleClick={(e) => e.stopPropagation()}
     >

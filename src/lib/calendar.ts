@@ -49,7 +49,7 @@ const SEED: SeedRow[] = [
 
 const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
 
-function quarterOf(date: Date): string {
+export function quarterOf(date: Date): string {
   const q = Math.floor(date.getUTCMonth() / 3) + 1;
   return `Q${q} ${date.getUTCFullYear()}`;
 }
@@ -106,4 +106,11 @@ export function findSprintIndexByAmclctNumber(sprints: Sprint[], amclct: number)
 export function freezeIndex(sprints: Sprint[]): number | null {
   const s = sprints.find((x) => x.flags.freeze);
   return s ? s.index : null;
+}
+
+// Индекс первого спринта текущего квартала — всё раньше считается «прошедшим».
+export function currentQuarterCutoffIndex(sprints: Sprint[]): number {
+  const label = quarterOf(new Date());
+  const idx = sprints.findIndex((s) => s.quarter === label);
+  return idx === -1 ? 0 : idx;
 }

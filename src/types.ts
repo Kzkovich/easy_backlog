@@ -104,6 +104,7 @@ export interface Epic {
   notes: string;
   links: EpicLink[];
   segments: Segment[];
+  visibleRoles?: RoleId[]; // какие роли показывать строками; undefined = все роли (обратная совместимость)
 }
 
 export interface ScenarioSnapshot {

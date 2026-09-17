@@ -1,17 +1,20 @@
-import { useMemo, useRef, useState } from 'react';
-import type { Epic, Plan, Segment } from '../types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { Epic, Plan, RoleId, Segment } from '../types';
 import type { RoleDef } from '../types';
 import { ROLE_DEFS } from '../lib/roles';
 import { computeOverlaps, overlapKey, scopesForEpicRole, type OverlapStatus } from '../lib/overlaps';
 import { epicSpan, roleDurationSprints } from '../lib/duration';
 import { clampMoveDelta, clampResizeLeft, clampResizeRight, clampEpicMoveDelta, segmentOverlapsRoleInEpic } from '../lib/dnd';
+import { currentQuarterCutoffIndex } from '../lib/calendar';
 import SegmentBar from './SegmentBar';
 import TextPopover from './TextPopover';
 
 interface Props {
   plan: Plan;
+  visibleEpics: Epic[];
   colWidth: number;
   mode: 'detailed' | 'management';
+  hidePast: boolean;
   updatePlan: (fn: (p: Plan) => Plan) => void;
   onEditEpic: (epicId: string) => void;
 }
@@ -26,8 +29,12 @@ type PopoverState =
   | { kind: 'note'; epicId: string; segmentId: string; sprintIndex: number; x: number; y: number }
   | null;
 
+type ReorderState = { draggedId: string; targetId: string } | null;
+type RoleMenuState = { epicId: string; x: number; y: number } | null;
+
 const CLICK_MOVE_THRESHOLD = 4;
 const DOUBLE_CLICK_WINDOW = 300;
+const LABEL_WIDTH = 260; // держим в синхроне с --label-width в styles.css
 
 function formatDateShort(iso: string): string {
   const [, m, d] = iso.split('-');
@@ -45,33 +52,58 @@ const TEAM_BADGE: Record<Epic['team'], string> = {
   BOTH: 'AMCLCT + JHD',
 };
 
-export default function Grid({ plan, colWidth, mode, updatePlan, onEditEpic }: Props) {
+function activeRolesOf(epic: Epic): RoleDef[] {
+  const ids = epic.visibleRoles ?? ROLE_DEFS.map((r) => r.id);
+  const set = new Set(ids);
+  return ROLE_DEFS.filter((r) => set.has(r.id));
+}
+
+export default function Grid({ plan, visibleEpics, colWidth, mode, hidePast, updatePlan, onEditEpic }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [livePreview, setLivePreview] = useState<LivePreview>(null);
   const [popover, setPopover] = useState<PopoverState>(null);
+  const [reorderState, setReorderState] = useState<ReorderState>(null);
+  const [roleMenu, setRoleMenu] = useState<RoleMenuState>(null);
   const clickPendingRef = useRef<{ segmentId: string; timer: number } | null>(null);
 
   const sprints = plan.sprints;
-  const n = sprints.length;
-  const maxIndex = n - 1;
+  const cutoffIndex = hidePast ? currentQuarterCutoffIndex(sprints) : 0;
+  const visibleSprints = useMemo(() => sprints.slice(cutoffIndex), [sprints, cutoffIndex]);
+  const n = visibleSprints.length;
+  const maxIndex = sprints.length - 1;
 
-  const freezeIdx = useMemo(() => sprints.find((s) => s.flags.freeze)?.index ?? null, [sprints]);
-  const holidayIdxs = useMemo(() => sprints.filter((s) => s.flags.holiday).map((s) => s.index), [sprints]);
   const overlapMap = useMemo(() => computeOverlaps(plan), [plan.epics, plan.settings]);
 
   const quarterGroups = useMemo(() => {
     const groups: { quarter: string; start: number; len: number; freeze: boolean }[] = [];
-    for (const s of sprints) {
+    for (const s of visibleSprints) {
       const last = groups[groups.length - 1];
       if (last && last.quarter === s.quarter) {
         last.len += 1;
         if (s.flags.freeze) last.freeze = true;
       } else {
-        groups.push({ quarter: s.quarter, start: s.index, len: 1, freeze: !!s.flags.freeze });
+        groups.push({ quarter: s.quarter, start: groups.length === 0 ? 0 : last!.start + last!.len, len: 1, freeze: !!s.flags.freeze });
       }
     }
     return groups;
-  }, [sprints]);
+  }, [visibleSprints]);
+
+  const freezeRealIdx = useMemo(() => sprints.find((s) => s.flags.freeze)?.index ?? null, [sprints]);
+  const holidayRealIdxs = useMemo(() => sprints.filter((s) => s.flags.holiday).map((s) => s.index), [sprints]);
+
+  function toDisplayCol(realIdx: number): number {
+    return realIdx - cutoffIndex;
+  }
+
+  useEffect(() => {
+    if (!roleMenu) return;
+    const handler = (e: MouseEvent) => {
+      const el = document.querySelector('.role-menu');
+      if (el && !el.contains(e.target as Node)) setRoleMenu(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [roleMenu]);
 
   function toggleEpic(id: string) {
     setCollapsed((prev) => {
@@ -82,7 +114,7 @@ export default function Grid({ plan, colWidth, mode, updatePlan, onEditEpic }: P
     });
   }
 
-  function displayRange(epic: Epic, seg: Segment): { from: number; to: number } {
+  function liveRealRange(epic: Epic, seg: Segment): { from: number; to: number } {
     if (livePreview?.type === 'segment' && livePreview.segmentId === seg.id) {
       return { from: livePreview.from, to: livePreview.to };
     }
@@ -90,6 +122,13 @@ export default function Grid({ plan, colWidth, mode, updatePlan, onEditEpic }: P
       return { from: seg.from + livePreview.deltaSprints, to: seg.to + livePreview.deltaSprints };
     }
     return { from: seg.from, to: seg.to };
+  }
+
+  function toDisplayRange(realFrom: number, realTo: number): { from: number; to: number } | null {
+    const dTo = realTo - cutoffIndex;
+    if (dTo < 0) return null;
+    const dFrom = Math.max(0, realFrom - cutoffIndex);
+    return { from: dFrom, to: dTo };
   }
 
   function segmentOverlapStatus(epic: Epic, seg: Segment): OverlapStatus | null {
@@ -108,25 +147,27 @@ export default function Grid({ plan, colWidth, mode, updatePlan, onEditEpic }: P
     return worst;
   }
 
-  function markers(rowKey: string) {
-    return (
-      <>
-        {freezeIdx !== null && (
-          <div key={`${rowKey}-freeze`} className="row-freeze-marker" style={{ left: freezeIdx * colWidth }} />
-        )}
-        {holidayIdxs.map((idx) => (
-          <div key={`${rowKey}-holiday-${idx}`} className="row-holiday-marker" style={{ left: idx * colWidth, width: colWidth }} />
-        ))}
-      </>
-    );
-  }
-
   function mutateEpic(epicId: string, fn: (epic: Epic) => Epic) {
     updatePlan((p) => ({ ...p, epics: p.epics.map((ep) => (ep.id === epicId ? fn(ep) : ep)) }));
   }
 
   function mutateSegment(epicId: string, segId: string, fn: (seg: Segment) => Segment) {
     mutateEpic(epicId, (ep) => ({ ...ep, segments: ep.segments.map((s) => (s.id === segId ? fn(s) : s)) }));
+  }
+
+  function addRole(epicId: string, roleId: RoleId) {
+    mutateEpic(epicId, (ep) => {
+      const current = ep.visibleRoles ?? ROLE_DEFS.map((r) => r.id);
+      if (current.includes(roleId)) return ep;
+      return { ...ep, visibleRoles: [...current, roleId] };
+    });
+  }
+
+  function removeRole(epicId: string, roleId: RoleId) {
+    mutateEpic(epicId, (ep) => {
+      const current = ep.visibleRoles ?? ROLE_DEFS.map((r) => r.id);
+      return { ...ep, visibleRoles: current.filter((id) => id !== roleId) };
+    });
   }
 
   function openLabelPopover(epicId: string, segmentId: string, x: number, y: number) {
@@ -229,7 +270,6 @@ export default function Grid({ plan, colWidth, mode, updatePlan, onEditEpic }: P
   function startEpicMove(e: React.PointerEvent, epic: Epic) {
     if (e.button !== 0) return;
     if (epic.segments.length === 0) {
-      // нечего двигать — сразу открываем редактирование
       onEditEpic(epic.id);
       return;
     }
@@ -261,10 +301,56 @@ export default function Grid({ plan, colWidth, mode, updatePlan, onEditEpic }: P
     window.addEventListener('pointerup', onUp);
   }
 
+  function startEpicReorder(e: React.PointerEvent, epic: Epic) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rects = visibleEpics.map((ep) => {
+      const el = document.querySelector(`[data-epic-header="${ep.id}"]`) as HTMLElement | null;
+      const r = el?.getBoundingClientRect();
+      return { id: ep.id, centerY: r ? r.top + r.height / 2 : 0 };
+    });
+    let targetId: string | null = null;
+
+    function onMove(ev: PointerEvent) {
+      let nearest = rects[0];
+      let nearestDist = Infinity;
+      for (const r of rects) {
+        const d = Math.abs(r.centerY - ev.clientY);
+        if (d < nearestDist) {
+          nearestDist = d;
+          nearest = r;
+        }
+      }
+      targetId = nearest.id === epic.id ? null : nearest.id;
+      setReorderState(targetId ? { draggedId: epic.id, targetId } : null);
+    }
+    function onUp() {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      setReorderState(null);
+      if (targetId) {
+        const finalTargetId = targetId;
+        updatePlan((p) => {
+          const dragged = p.epics.find((e) => e.id === epic.id);
+          if (!dragged) return p;
+          const rest = p.epics.filter((e) => e.id !== epic.id);
+          const anchorIdx = rest.findIndex((e) => e.id === finalTargetId);
+          if (anchorIdx === -1) return p;
+          const next = [...rest];
+          next.splice(anchorIdx, 0, dragged);
+          return { ...p, epics: next };
+        });
+      }
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }
+
   function handleTrackDoubleClick(e: React.MouseEvent, epic: Epic, role: RoleDef) {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const offsetX = e.clientX - rect.left;
-    const sprintIndex = Math.max(0, Math.min(maxIndex, Math.floor(offsetX / colWidth)));
+    const sprintIndex = Math.max(cutoffIndex, Math.min(maxIndex, cutoffIndex + Math.floor(offsetX / colWidth)));
     if (segmentOverlapsRoleInEpic(epic, role.id, sprintIndex, sprintIndex)) return;
     const newSeg: Segment = {
       id: `${epic.id}-${role.id}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
@@ -284,6 +370,23 @@ export default function Grid({ plan, colWidth, mode, updatePlan, onEditEpic }: P
   return (
     <div className="grid-scroll">
       <div className="grid" style={{ ['--n-cols' as any]: n, ['--col-width' as any]: `${colWidth}px` }}>
+        {Array.from({ length: n + 1 }, (_, i) => (
+          <div key={`sl-${i}`} className="grid-marker sprint-line" style={{ left: LABEL_WIDTH + i * colWidth }} />
+        ))}
+        {holidayRealIdxs.map((idx) => {
+          const col = toDisplayCol(idx);
+          if (col < 0 || col >= n) return null;
+          return <div key={`hb-${idx}`} className="grid-marker holiday-block" style={{ left: LABEL_WIDTH + col * colWidth, width: colWidth }} />;
+        })}
+        {quarterGroups.map((g) => (
+          <div key={`ql-${g.start}`} className="grid-marker quarter-line" style={{ left: LABEL_WIDTH + g.start * colWidth }} />
+        ))}
+        {freezeRealIdx !== null &&
+          toDisplayCol(freezeRealIdx) >= 0 &&
+          toDisplayCol(freezeRealIdx) < n && (
+            <div className="grid-marker freeze-line" style={{ left: LABEL_WIDTH + toDisplayCol(freezeRealIdx) * colWidth }} />
+          )}
+
         <div className="cell label-cell" style={{ gridColumn: '1 / 2', gridRow: 1 }} />
         {quarterGroups.map((g) => (
           <div
@@ -299,12 +402,8 @@ export default function Grid({ plan, colWidth, mode, updatePlan, onEditEpic }: P
         <div className="cell label-cell" style={{ gridColumn: '1 / 2', gridRow: 2 }}>
           Эпик / роль
         </div>
-        {sprints.map((s) => (
-          <div
-            key={s.index}
-            className={`cell sprint-header-cell${s.flags.holiday ? ' holiday' : ''}${s.flags.freeze ? ' freeze-col' : ''}`}
-            style={{ gridColumn: `${s.index + 2} / ${s.index + 3}`, gridRow: 2 }}
-          >
+        {visibleSprints.map((s, i) => (
+          <div key={s.index} className="cell sprint-header-cell" style={{ gridColumn: `${i + 2} / ${i + 3}`, gridRow: 2 }}>
             <span className="nums">
               {s.jhd} / {s.amclct}
             </span>
@@ -312,29 +411,47 @@ export default function Grid({ plan, colWidth, mode, updatePlan, onEditEpic }: P
           </div>
         ))}
 
-        {plan.epics.map((epic) => {
+        {visibleEpics.map((epic) => {
           const isCollapsed = collapsed.has(epic.id);
           const headerRow = rowCounter++;
           const span = epicSpan(epic);
           const isEpicDragging = livePreview?.type === 'epic' && livePreview.epicId === epic.id;
           const displaySpan =
             span && isEpicDragging && livePreview?.type === 'epic'
+              ? toDisplayRange(span.from + livePreview.deltaSprints, span.to + livePreview.deltaSprints)
+              : span
+                ? toDisplayRange(span.from, span.to)
+                : null;
+          const trueSpan =
+            span && isEpicDragging && livePreview?.type === 'epic'
               ? { from: span.from + livePreview.deltaSprints, to: span.to + livePreview.deltaSprints, lengthSprints: span.lengthSprints }
               : span;
 
-          const roleRows =
-            !isCollapsed && mode === 'detailed'
-              ? ROLE_DEFS.map((role) => {
-                  const row = rowCounter++;
-                  const segs = epic.segments.filter((s) => s.role === role.id);
-                  return { role, row, segs };
-                })
-              : [];
-          const managementRow = !isCollapsed && mode === 'management' ? rowCounter++ : null;
+          const showRollup = isCollapsed || mode === 'management';
+          const showRoleRows = !isCollapsed && mode === 'detailed';
+          const activeRoles = activeRolesOf(epic);
+          const hiddenRoles = ROLE_DEFS.filter((r) => !activeRoles.includes(r));
+
+          const roleRows = showRoleRows
+            ? activeRoles.map((role) => {
+                const row = rowCounter++;
+                const segs = epic.segments.filter((s) => s.role === role.id);
+                return { role, row, segs };
+              })
+            : [];
+          const roleAddRow = showRoleRows && hiddenRoles.length > 0 ? rowCounter++ : null;
+          const rollupRow = showRollup ? rowCounter++ : null;
 
           return (
             <div key={epic.id} style={{ display: 'contents' }}>
-              <div className="cell label-cell epic-header-label" style={{ gridColumn: '1 / 2', gridRow: headerRow }}>
+              <div
+                className={`cell label-cell epic-header-label${reorderState?.targetId === epic.id ? ' reorder-target' : ''}`}
+                style={{ gridColumn: '1 / 2', gridRow: headerRow }}
+                data-epic-header={epic.id}
+              >
+                <span className="reorder-handle" onPointerDown={(e) => startEpicReorder(e, epic)} title="Перетащить, чтобы изменить порядок">
+                  ⠿
+                </span>
                 <span
                   className={`collapse-arrow${isCollapsed ? ' collapsed' : ''}`}
                   onClick={(e) => {
@@ -353,7 +470,6 @@ export default function Grid({ plan, colWidth, mode, updatePlan, onEditEpic }: P
                 style={{ gridColumn: `2 / span ${n}`, gridRow: headerRow, position: 'relative' }}
                 onPointerDown={(e) => startEpicMove(e, epic)}
               >
-                {markers(`epic-${epic.id}`)}
                 <div className="epic-info-overlay">
                   <span className="epic-badge">{TEAM_BADGE[epic.team]}</span>
                   <span className="epic-badge">{epic.status}</span>
@@ -361,65 +477,80 @@ export default function Grid({ plan, colWidth, mode, updatePlan, onEditEpic }: P
                     эффект: {formatMoney(epic.effectYear)} / в этом году: {formatMoney(epic.effect2026)}
                   </span>
                   {epic.needsKb && <span className="epic-badge">нужна БЗ</span>}
-                  {displaySpan && (
+                  {trueSpan && (
                     <span className="epic-badge duration-badge">
-                      {displaySpan.lengthSprints} спр. итого ({formatDateShort(sprints[displaySpan.from].dateFrom)}–
-                      {formatDateShort(sprints[displaySpan.to].dateTo)})
+                      {trueSpan.lengthSprints} спр. итого ({formatDateShort(sprints[Math.min(trueSpan.from, sprints.length - 1)]?.dateFrom ?? sprints[0].dateFrom)}–
+                      {formatDateShort(sprints[Math.min(trueSpan.to, sprints.length - 1)]?.dateTo ?? sprints[sprints.length - 1].dateTo)})
                     </span>
                   )}
                 </div>
               </div>
 
-              {mode === 'detailed' &&
-                roleRows.map(({ role, row, segs }) => (
-                  <div key={role.id} style={{ display: 'contents' }}>
-                    <div className="cell label-cell role-label-cell" style={{ gridColumn: '1 / 2', gridRow: row }}>
-                      {role.label}
-                      {segs.length > 0 && <span className="role-duration">{roleDurationSprints(segs)} спр.</span>}
-                    </div>
-                    <div
-                      className="cell"
-                      style={{ gridColumn: `2 / span ${n}`, gridRow: row, position: 'relative' }}
-                      onDoubleClick={(e) => handleTrackDoubleClick(e, epic, role)}
-                    >
-                      {markers(`${epic.id}-${role.id}`)}
-                      {segs.map((seg) => {
-                        const disp = displayRange(epic, seg);
-                        return (
-                          <SegmentBar
-                            key={seg.id}
-                            segment={seg}
-                            colWidth={colWidth}
-                            from={disp.from}
-                            to={disp.to}
-                            overlapStatus={segmentOverlapStatus(epic, seg)}
-                            isDragging={(livePreview?.type === 'segment' && livePreview.segmentId === seg.id) || !!isEpicDragging}
-                            onBodyPointerDown={(e) => startSegmentMove(e, epic, seg)}
-                            onLeftHandlePointerDown={(e) => startResizeLeft(e, epic, seg)}
-                            onRightHandlePointerDown={(e) => startResizeRight(e, epic, seg)}
-                          />
-                        );
-                      })}
-                    </div>
+              {roleRows.map(({ role, row, segs }) => (
+                <div key={role.id} style={{ display: 'contents' }}>
+                  <div className="cell label-cell role-label-cell" style={{ gridColumn: '1 / 2', gridRow: row }}>
+                    <span className="role-label-text">{role.label}</span>
+                    {segs.length > 0 && <span className="role-duration">{roleDurationSprints(segs)} спр.</span>}
+                    {segs.length === 0 && (
+                      <button className="role-remove-btn" title="Убрать роль" onClick={() => removeRole(epic.id, role.id)}>
+                        ✕
+                      </button>
+                    )}
                   </div>
-                ))}
+                  <div
+                    className="cell"
+                    style={{ gridColumn: `2 / span ${n}`, gridRow: row, position: 'relative' }}
+                    onDoubleClick={(e) => handleTrackDoubleClick(e, epic, role)}
+                  >
+                    {segs.map((seg) => {
+                      const real = liveRealRange(epic, seg);
+                      const disp = toDisplayRange(real.from, real.to);
+                      if (!disp) return null;
+                      return (
+                        <SegmentBar
+                          key={seg.id}
+                          segment={seg}
+                          colWidth={colWidth}
+                          from={disp.from}
+                          to={disp.to}
+                          overlapStatus={segmentOverlapStatus(epic, seg)}
+                          isDragging={(livePreview?.type === 'segment' && livePreview.segmentId === seg.id) || !!isEpicDragging}
+                          onBodyPointerDown={(e) => startSegmentMove(e, epic, seg)}
+                          onLeftHandlePointerDown={(e) => startResizeLeft(e, epic, seg)}
+                          onRightHandlePointerDown={(e) => startResizeRight(e, epic, seg)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
 
-              {mode === 'management' && managementRow !== null && displaySpan && (
+              {roleAddRow !== null && (
                 <div style={{ display: 'contents' }}>
-                  <div className="cell label-cell role-label-cell" style={{ gridColumn: '1 / 2', gridRow: managementRow }}>
+                  <div className="cell label-cell role-add-row" style={{ gridColumn: '1 / 2', gridRow: roleAddRow }}>
+                    <button
+                      className="role-add-btn"
+                      onClick={(e) => setRoleMenu({ epicId: epic.id, x: e.clientX, y: e.clientY })}
+                    >
+                      + Роль
+                    </button>
+                  </div>
+                  <div className="cell" style={{ gridColumn: `2 / span ${n}`, gridRow: roleAddRow }} />
+                </div>
+              )}
+
+              {rollupRow !== null && displaySpan && (
+                <div style={{ display: 'contents' }}>
+                  <div className="cell label-cell role-label-cell" style={{ gridColumn: '1 / 2', gridRow: rollupRow }}>
                     срок фичи
                   </div>
-                  <div className="cell" style={{ gridColumn: `2 / span ${n}`, gridRow: managementRow, position: 'relative' }}>
-                    {markers(`${epic.id}-mgmt`)}
+                  <div className="cell" style={{ gridColumn: `2 / span ${n}`, gridRow: rollupRow, position: 'relative' }}>
                     <div
                       className="segment-bar management-bar"
-                      style={{
-                        left: displaySpan.from * colWidth + 3,
-                        width: (displaySpan.to - displaySpan.from + 1) * colWidth - 6,
-                      }}
+                      style={{ left: displaySpan.from * colWidth + 3, width: (displaySpan.to - displaySpan.from + 1) * colWidth - 6 }}
                     >
                       <span className="seg-label">
-                        {epic.title} · {displaySpan.lengthSprints} спр.
+                        {epic.title} · {trueSpan?.lengthSprints} спр.
                       </span>
                     </div>
                   </div>
@@ -429,6 +560,30 @@ export default function Grid({ plan, colWidth, mode, updatePlan, onEditEpic }: P
           );
         })}
       </div>
+
+      {roleMenu &&
+        (() => {
+          const epic = plan.epics.find((e) => e.id === roleMenu.epicId);
+          if (!epic) return null;
+          const active = new Set(epic.visibleRoles ?? ROLE_DEFS.map((r) => r.id));
+          const hidden = ROLE_DEFS.filter((r) => !active.has(r.id));
+          if (hidden.length === 0) return null;
+          return (
+            <div className="role-menu" style={{ left: roleMenu.x, top: roleMenu.y }}>
+              {hidden.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => {
+                    addRole(epic.id, r.id);
+                    setRoleMenu(null);
+                  }}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
 
       {popover &&
         (() => {

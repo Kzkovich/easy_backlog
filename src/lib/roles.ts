@@ -1,18 +1,18 @@
 import type { RoleDef, RoleId } from '../types';
 
 export const ROLE_DEFS: RoleDef[] = [
-  { id: 'business', label: 'Бизнес', color: '#B7B7B7', order: 0, capacityTracked: false, shared: false },
-  { id: 'grooming', label: 'Груминг', color: '#D9D9D9', order: 1, capacityTracked: false, shared: false },
-  { id: 'design', label: 'Дизайн', color: '#B6D7A8', order: 2, capacityTracked: true, shared: true },
-  { id: 'android', label: 'Фронт Android', color: '#D9D2E9', order: 3, capacityTracked: true, shared: false },
-  { id: 'ios', label: 'Фронт iOS', color: '#351C75', order: 4, capacityTracked: true, shared: true },
-  { id: 'web', label: 'Фронт Web/Mob', color: '#8E7CC3', order: 5, capacityTracked: true, shared: true },
-  { id: 'midl', label: 'Мидл', color: '#783F04', order: 6, capacityTracked: true, shared: false },
-  { id: 'analytics', label: 'Аналитика', color: '#CFE2F3', order: 7, capacityTracked: true, shared: false },
-  { id: 'testing', label: 'Тестирование', color: '#F9CB9C', order: 8, capacityTracked: true, shared: false },
-  { id: 'ek', label: 'ЕК', color: '#990000', order: 9, capacityTracked: false, shared: false },
-  { id: 'rollout', label: 'Раскатка', color: '#3C78D8', order: 10, capacityTracked: true, shared: false },
-  { id: 'docs', label: 'Документация/БЗ', color: '#FFD966', order: 11, capacityTracked: false, shared: false },
+  { id: 'business', label: 'Бизнес', color: '#94A3B8', order: 0, capacityTracked: false, shared: false },
+  { id: 'grooming', label: 'Груминг', color: '#CBD5E1', order: 1, capacityTracked: false, shared: false },
+  { id: 'design', label: 'Дизайн', color: '#00E5A0', order: 2, capacityTracked: true, shared: true },
+  { id: 'android', label: 'Фронт Android', color: '#B98BFF', order: 3, capacityTracked: true, shared: false },
+  { id: 'ios', label: 'Фронт iOS', color: '#8B5CF6', order: 4, capacityTracked: true, shared: true },
+  { id: 'web', label: 'Фронт Web/Mob', color: '#6366F1', order: 5, capacityTracked: true, shared: true },
+  { id: 'midl', label: 'Мидл', color: '#FF7A45', order: 6, capacityTracked: true, shared: false },
+  { id: 'analytics', label: 'Аналитика', color: '#38BDF8', order: 7, capacityTracked: true, shared: false },
+  { id: 'testing', label: 'Тестирование', color: '#FFD23F', order: 8, capacityTracked: true, shared: false },
+  { id: 'ek', label: 'ЕК', color: '#FF3860', order: 9, capacityTracked: false, shared: false },
+  { id: 'rollout', label: 'Раскатка', color: '#2DD4FF', order: 10, capacityTracked: true, shared: false },
+  { id: 'docs', label: 'Документация/БЗ', color: '#F472B6', order: 11, capacityTracked: false, shared: false },
 ];
 
 export const ROLE_BY_ID: Record<RoleId, RoleDef> = Object.fromEntries(
