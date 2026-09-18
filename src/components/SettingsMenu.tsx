@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
 export type ZoomLevel = 'compact' | 'normal' | 'large';
-export type Theme = 'light' | 'dark' | 'auto';
+export type Theme = 'light' | 'ceramic' | 'dark' | 'auto';
+export type BgPattern = 'dots' | 'squares';
 
 interface Props {
   zoom: ZoomLevel;
@@ -10,6 +11,8 @@ interface Props {
   onHidePast: (v: boolean) => void;
   theme: Theme;
   onTheme: (t: Theme) => void;
+  bgPattern: BgPattern;
+  onBgPattern: (p: BgPattern) => void;
   onImport: () => void;
 }
 
@@ -31,7 +34,7 @@ function Seg<T extends string>({ value, options, onChange }: SegProps<T>) {
   );
 }
 
-export default function SettingsMenu({ zoom, onZoom, hidePast, onHidePast, theme, onTheme, onImport }: Props) {
+export default function SettingsMenu({ zoom, onZoom, hidePast, onHidePast, theme, onTheme, bgPattern, onBgPattern, onImport }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -86,8 +89,20 @@ export default function SettingsMenu({ zoom, onZoom, hidePast, onHidePast, theme
               onChange={onTheme}
               options={[
                 ['light', '☼ светлая'],
+                ['ceramic', '✦ керамика'],
                 ['dark', '☾ тёмная'],
                 ['auto', 'как в системе'],
+              ]}
+            />
+          </div>
+          <div className="settings-row">
+            <span className="settings-label">Фон сетки</span>
+            <Seg
+              value={bgPattern}
+              onChange={onBgPattern}
+              options={[
+                ['dots', 'точки'],
+                ['squares', 'клетка'],
               ]}
             />
           </div>

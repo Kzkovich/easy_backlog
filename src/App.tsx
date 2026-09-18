@@ -4,7 +4,8 @@ import Grid from './components/Grid';
 import EpicFormPanel from './components/EpicFormPanel';
 import TeamsPanel from './components/TeamsPanel';
 import LoadPanel, { type LoadHighlight } from './components/LoadPanel';
-import SettingsMenu, { type Theme, type ZoomLevel } from './components/SettingsMenu';
+import SettingsMenu, { type BgPattern, type Theme, type ZoomLevel } from './components/SettingsMenu';
+import AuthScreen, { type AuthUser } from './components/AuthScreen';
 import { parsePlanWorkbook } from './lib/xlsxImport';
 import { computeLoad } from './lib/load';
 import { normalizePlan } from './lib/teams';
@@ -18,6 +19,8 @@ function readLocal<T extends string>(key: string, fallback: T): T {
 }
 
 export default function App() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +30,7 @@ export default function App() {
   const [teamFilter, setTeamFilter] = useState<string>('ALL');
   const [hidePast, setHidePast] = useState(() => localStorage.getItem('kolbaski-hide-past') !== '0');
   const [theme, setTheme] = useState<Theme>(() => readLocal('kolbaski-theme', 'light'));
+  const [bgPattern, setBgPattern] = useState<BgPattern>(() => readLocal('kolbaski-bg-pattern', 'dots'));
   const [showTeams, setShowTeams] = useState(false);
   const [highlight, setHighlight] = useState<LoadHighlight | null>(null);
   const [saving, setSaving] = useState(false);
@@ -42,10 +46,33 @@ export default function App() {
     localStorage.setItem('kolbaski-theme', theme);
   }, [theme]);
 
+  useEffect(() => {
+    document.documentElement.setAttribute('data-bg-pattern', bgPattern);
+    localStorage.setItem('kolbaski-bg-pattern', bgPattern);
+  }, [bgPattern]);
+
   useEffect(() => localStorage.setItem('kolbaski-zoom', zoom), [zoom]);
   useEffect(() => localStorage.setItem('kolbaski-hide-past', hidePast ? '1' : '0'), [hidePast]);
 
   useEffect(() => {
+    fetch('/api/auth/session')
+      .then((r) => {
+        if (!r.ok) throw new Error(`Сервер вернул ${r.status}`);
+        return r.json();
+      })
+      .then((data) => setUser(data.user ?? null))
+      .catch(() => setUser(null))
+      .finally(() => setAuthLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setPlan(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
     fetch('/api/plan')
       .then((r) => {
         if (!r.ok) throw new Error(`Сервер вернул ${r.status}`);
@@ -56,10 +83,10 @@ export default function App() {
         setLoading(false);
       })
       .catch((e) => {
-        setError(`Не удалось загрузить data/plan.json: ${e.message}. Запущен ли мини-сервер (npm run dev)?`);
+        setError(`Не удалось загрузить план: ${e.message}. Запущен ли мини-сервер (npm run dev)?`);
         setLoading(false);
       });
-  }, []);
+  }, [user]);
 
   // Выбранная в фильтре команда могла быть удалена
   useEffect(() => {
@@ -78,7 +105,7 @@ export default function App() {
       if (!file || !plan) return;
       if (
         !window.confirm(
-          `Импортировать "${file.name}"? Текущий список эпиков (${plan.epics.length}) будет заменён импортированными данными. Это можно отменить только вручную, восстановив предыдущий data/plan.json из data/backups.`
+          `Импортировать "${file.name}"? Текущий список эпиков (${plan.epics.length}) будет заменён импортированными данными. Перед сохранением сервер создаст резервную копию вашего плана.`
         )
       ) {
         return;
@@ -140,6 +167,29 @@ export default function App() {
     setPanelTarget(null);
   }
 
+  async function handleLogout() {
+    if (dirty && !window.confirm('Выйти без сохранения последних изменений?')) return;
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
+    setUser(null);
+    setPlan(null);
+    setDirty(false);
+  }
+
+  if (authLoading) {
+    return <div className="auth-loading">Подготавливаем пространство…</div>;
+  }
+
+  if (!user) {
+    return (
+      <AuthScreen
+        onAuthenticated={(nextUser) => {
+          setUser(nextUser);
+          setLoading(true);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="app">
       <div className="toolbar">
@@ -190,8 +240,17 @@ export default function App() {
           onHidePast={setHidePast}
           theme={theme}
           onTheme={setTheme}
+          bgPattern={bgPattern}
+          onBgPattern={setBgPattern}
           onImport={() => fileInputRef.current?.click()}
         />
+        <div className="account-menu" title={`Вы вошли как ${user.username}`}>
+          <span className="account-avatar">{user.username.slice(0, 1).toUpperCase()}</span>
+          <span className="account-name">{user.username}</span>
+          <button className="account-logout" onClick={handleLogout}>
+            Выйти
+          </button>
+        </div>
         <input ref={fileInputRef} type="file" accept=".xlsx,.xlsm" style={{ display: 'none' }} onChange={handleFileChange} />
       </div>
 

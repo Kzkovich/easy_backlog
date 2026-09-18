@@ -1,5 +1,7 @@
 node_modules
 dist
 data/backups
+data/users
+data/users.json
 .DS_Store
 *.tsbuildinfo

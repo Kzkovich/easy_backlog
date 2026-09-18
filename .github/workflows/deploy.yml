@@ -27,10 +27,14 @@ jobs:
 
       - name: Sync build output
         run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "mkdir -p /opt/kolbaski/data"
           rsync -avz --delete -e "ssh -i ~/.ssh/deploy_key" dist/ \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/kolbaski/dist/"
           rsync -avz --delete -e "ssh -i ~/.ssh/deploy_key" server/ \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/kolbaski/server/"
+          rsync -avz --ignore-existing -e "ssh -i ~/.ssh/deploy_key" data/plan.json \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/kolbaski/data/plan.json"
           rsync -avz -e "ssh -i ~/.ssh/deploy_key" package.json package-lock.json \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/kolbaski/"
 
