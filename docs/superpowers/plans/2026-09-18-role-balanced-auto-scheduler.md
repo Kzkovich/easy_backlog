@@ -401,51 +401,63 @@ export function runScheduler(
   }
 
   // 2. Приоритет эпиков — по самому раннему будущему сегменту.
-  const order = new Map<string, number>();
+  const epicPriority = new Map<string, number>();
   for (const p of pending) {
-    const cur0 = order.get(p.epic.id);
-    if (cur0 === undefined || p.segment.from < cur0) order.set(p.epic.id, p.segment.from);
+    const c = epicPriority.get(p.epic.id);
+    if (c === undefined || p.segment.from < c) epicPriority.set(p.epic.id, p.segment.from);
   }
-  pending.sort((a, b) => (order.get(a.epic.id)! - order.get(b.epic.id)!) || a.epic.id.localeCompare(b.epic.id));
+  const orderedEpicIds = [...epicPriority.keys()].sort(
+    (a, b) => (epicPriority.get(a)! - epicPriority.get(b)!) || a.localeCompare(b)
+  );
 
-  // 3. По каждому эпику — по стадиям пайплайна.
+  // 3. По каждому эпику (в порядке приоритета) — по стадиям пайплайна.
   const working = { ...plan, epics };
-  for (const { epic, segment } of pending) {
-    const pipeline = pipelineForEpic(plan, epic);
-    // Этап сегмента: первый этап, содержащий роль.
-    const stageIndex = pipeline.stages.findIndex((st) => st.roles.includes(segment.role));
-    const stage = stageIndex >= 0 ? pipeline.stages[stageIndex] : undefined;
-    const workingEpic = working.epics.find((e) => e.id === epic.id)!;
-    // пол сегмента — финиши предыдущего этапа в этом эпике
-    let floor = cur;
-    if (stage && stageIndex > 0) {
-      const prevEnds: number[] = [];
-      for (const prevStage of pipeline.stages.slice(0, stageIndex)) {
-        for (const r of prevStage.roles) {
-          for (const s of workingEpic.segments) if (s.role === r && s.from >= cur) prevEnds.push(s.to);
-        }
-      }
-      floor = Math.max(cur, stageFloor(prevEnds, stage.linkType) + (stage.linkType === 'sequential' ? 0 : 0));
-    }
-    // роль не должна перекрывать свой предыдущий сегмент в этом эпике
-    const ownPrev = workingEpic.segments.filter((s) => s.role === segment.role).map((s) => s.to);
-    if (ownPrev.length) floor = Math.max(floor, Math.max(...ownPrev) + 1);
+  const stageIndexOf = (pipeline: Pipeline, roleId: string) => {
+    const idx = pipeline.stages.findIndex((st) => st.roles.includes(roleId));
+    return idx < 0 ? Number.MAX_SAFE_INTEGER : idx;
+  };
 
-    const duration = segment.to - segment.from;
-    let from = floor;
-    if (mode === 'comfortable') {
-      while (from + duration < plan.sprints.length && wouldOverload(working, epic, segment, from, from + duration)) from += 1;
+  for (const epicId of orderedEpicIds) {
+    const epic = plan.epics.find((e) => e.id === epicId)!;
+    const pipeline = pipelineForEpic(plan, epic);
+    const workingEpic = working.epics.find((e) => e.id === epicId)!;
+    const segs = pending
+      .filter((p) => p.epic.id === epicId)
+      .map((p) => p.segment)
+      .sort((a, b) => stageIndexOf(pipeline, a.role) - stageIndexOf(pipeline, b.role) || a.role.localeCompare(b.role));
+
+    for (const segment of segs) {
+      const stageIndex = pipeline.stages.findIndex((st) => st.roles.includes(segment.role));
+      const stage = stageIndex >= 0 ? pipeline.stages[stageIndex] : undefined;
+      // пол — финиши всех предыдущих этапов (по linkType последнего перед этим)
+      let floor = cur;
+      if (stage && stageIndex > 0) {
+        const prevEnds: number[] = [];
+        for (const prevStage of pipeline.stages.slice(0, stageIndex)) {
+          for (const r of prevStage.roles) {
+            for (const s of workingEpic.segments) if (s.role === r) prevEnds.push(s.to);
+          }
+        }
+        if (prevEnds.length) floor = Math.max(cur, stageFloor(prevEnds, stage.linkType));
+      }
+      // роль не должна перекрывать свой предыдущий сегмент в этом эпике
+      const ownPrev = workingEpic.segments.filter((s) => s.role === segment.role).map((s) => s.to);
+      if (ownPrev.length) floor = Math.max(floor, Math.max(...ownPrev) + 1);
+
+      const duration = segment.to - segment.from;
+      let from = floor;
+      if (mode === 'comfortable') {
+        while (from + duration < plan.sprints.length && wouldOverload(working, epic, segment, from, from + duration)) from += 1;
+      }
+      workingEpic.segments.push({ ...segment, from, to: from + duration });
     }
-    const to = from + duration;
-    const placed = { ...segment, from, to };
-    workingEpic.segments.push(placed);
   }
 
   return { epics: working.epics, people: plan.people };
 }
 ```
 
-> Примечание: `floor` вычисляется как «первый допустимый старт»: `sequential` = `max(prev.to)`, `earliest` = `min(prev.to)`; роли одного этапа ставятся с одного пола. «same-sprint parallel start» уже учтён тем, что `floor` равен `to` предыдущего (а не `to + 1`); собственный предыдущий сегмент роли требует `+1`.
+> Примечание: `floor` — первый допустимый старт: `sequential` = `max(prev.to)`, `earliest` = `min(prev.to)`; «same-sprint parallel start» уже учтён тем, что `floor` равен `to` предыдущего этапа (не `to + 1`). Перекрытие собственной роли в этом эпике требует `+1`. Сегменты одного эпика укладываются в порядке стадий пайплайна.
 
 - [ ] **Step 4: Run to verify pass**
 
