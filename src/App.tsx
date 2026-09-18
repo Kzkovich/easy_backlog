@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Epic, Plan, Segment } from './types';
+import type { Epic, Plan, ScenarioSnapshot, Segment } from './types';
 import Grid from './components/Grid';
 import EpicFormPanel from './components/EpicFormPanel';
 import TeamsPanel from './components/TeamsPanel';
 import LoadPanel, { type LoadHighlight } from './components/LoadPanel';
+import SchedulerCompare from './components/SchedulerCompare';
 import SettingsMenu, { type BgPattern, type Theme, type ZoomLevel } from './components/SettingsMenu';
 import AuthScreen, { type AuthUser } from './components/AuthScreen';
 import { parsePlanWorkbook } from './lib/xlsxImport';
 import { computeLoad } from './lib/load';
 import { normalizePlan } from './lib/teams';
+import { runScheduler, type SchedulerMode } from './lib/scheduler';
 import { currentQuarterCutoffIndex, currentSprintIndex } from './lib/calendar';
 
 const ZOOM_WIDTH: Record<ZoomLevel, number> = { compact: 64, normal: 92 };
@@ -45,6 +47,7 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [panelTarget, setPanelTarget] = useState<string | 'new' | null>(null);
+  const [schedulerDraft, setSchedulerDraft] = useState<{ mode: SchedulerMode; snapshot: ScenarioSnapshot } | null>(null);
   const [lastDeleted, setLastDeleted] = useState<LastDeleted>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const teamsButtonRef = useRef<HTMLButtonElement>(null);
@@ -206,6 +209,18 @@ export default function App() {
     setLastDeleted(null);
   }
 
+  function applyScheduler(selectedIds: Set<string>) {
+    if (!schedulerDraft || !plan) return;
+    updatePlan((p) => ({
+      ...p,
+      epics: p.epics.map((e) => {
+        const draftEpic = schedulerDraft.snapshot.epics.find((d) => d.id === e.id);
+        return draftEpic && selectedIds.has(e.id) ? { ...e, segments: draftEpic.segments } : e;
+      }),
+    }));
+    setSchedulerDraft(null);
+  }
+
   async function handleLogout() {
     if (dirty && !window.confirm('Выйти без сохранения последних изменений?')) return;
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => undefined);
@@ -271,6 +286,24 @@ export default function App() {
             ))}
           </select>
         )}
+
+        <div className="toolbar-sep" />
+        <button
+          className="btn"
+          onClick={() => setSchedulerDraft({ mode: 'comfortable', snapshot: runScheduler(plan!, 'comfortable') })}
+          disabled={!plan}
+          title="Перепланировать будущие сегменты без перегрузок"
+        >
+          Комфортно
+        </button>
+        <button
+          className="btn"
+          onClick={() => setSchedulerDraft({ mode: 'emergency', snapshot: runScheduler(plan!, 'emergency') })}
+          disabled={!plan}
+          title="Перепланировать в максимально сжатые сроки (перегруз допускается)"
+        >
+          Экстренно
+        </button>
 
         <div className="spacer" />
 
@@ -405,6 +438,21 @@ export default function App() {
           />
         )}
       </main>
+
+      {schedulerDraft && plan && (
+        <SchedulerCompare
+          plan={plan}
+          mode={schedulerDraft.mode}
+          snapshot={schedulerDraft.snapshot}
+          viewMode={mode}
+          colWidth={ZOOM_WIDTH[zoom]}
+          cutoffIndex={cutoffIndex}
+          currentSprint={currentSprint}
+          teamFilter={teamFilter}
+          onApply={applyScheduler}
+          onDiscard={() => setSchedulerDraft(null)}
+        />
+      )}
     </div>
   );
 }

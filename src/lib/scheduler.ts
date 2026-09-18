@@ -47,6 +47,18 @@ function wouldOverload(plan: Plan, epic: Epic, segment: Segment, from: number, t
   return false;
 }
 
+export function movedSegmentIds(current: Plan, draft: ScenarioSnapshot): Set<string> {
+  const cur = new Map(current.epics.flatMap((e) => e.segments.map((s) => [s.id, s] as const)));
+  const out = new Set<string>();
+  for (const e of draft.epics) {
+    for (const s of e.segments) {
+      const c = cur.get(s.id);
+      if (c && (c.from !== s.from || c.to !== s.to)) out.add(s.id);
+    }
+  }
+  return out;
+}
+
 export function runScheduler(
   plan: Plan,
   mode: SchedulerMode,
