@@ -112,3 +112,31 @@ describe('runScheduler comfortable', () => {
     expect(e3.segments[0].from).toBeGreaterThanOrEqual(31);
   });
 });
+
+describe('runScheduler emergency', () => {
+  it('allows overload but never shortens duration', () => {
+    const plan = makePlan();
+    const src = plan.epics[0].segments.find((s) => s.role === 'midl')!;
+    const snap = runScheduler(plan, 'emergency', { currentSprint: 30 });
+    const midl = snap.epics[0].segments.find((s) => s.role === 'midl')!;
+    // длительность (to - from) не сжимается: исходные 2 спринта (36 - 34) сохранены
+    expect(midl.to - midl.from).toBe(src.to - src.from);
+  });
+
+  it('never clamps from below the dependency floor', () => {
+    const base = makePlan();
+    const epic: Epic = {
+      ...base.epics[0],
+      id: 'e1',
+      segments: [
+        { id: 's1', role: 'design', from: 30, to: 35, label: '', color: null, flag: null },
+        { id: 's2', role: 'midl', from: 40, to: 100, label: '', color: null, flag: null },
+      ],
+    };
+    const plan = { ...base, epics: [epic] };
+    const snap = runScheduler(plan, 'emergency', { currentSprint: 30 });
+    const midl = snap.epics[0].segments.find((s) => s.role === 'midl')!;
+    // floor = design.to = 35; клэмп по горизонту не должен опускать from ниже floor
+    expect(midl.from).toBeGreaterThanOrEqual(35);
+  });
+});

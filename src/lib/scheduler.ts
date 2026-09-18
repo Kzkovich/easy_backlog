@@ -120,10 +120,15 @@ export function runScheduler(
       let from = floor;
       if (mode === 'comfortable') {
         while (from < maxFrom && wouldOverload(working, epic, segment, from, from + duration)) from += 1;
+        // Если перегрузка сохраняется до самого горизонта, сегмент остаётся у края
+        // сетки: перегруз в этом случае неизбежен, за пределы горизонта не выходим.
+        from = Math.min(from, maxFrom);
+      } else {
+        // emergency: сегмент ставится на floor безусловно (over разрешён), длительность
+        // не сжимается. Guard не даёт опустить `from` ниже floor в вырожденном случае,
+        // когда duration не помещается от floor до горизонта (тогда `to` уходит за горизонт).
+        from = Math.max(floor, Math.min(from, maxFrom));
       }
-      // Если перегрузка сохраняется до самого горизонта, сегмент остаётся у края
-      // сетки: перегруз в этом случае неизбежен, за пределы горизонта не выходим.
-      from = Math.min(from, maxFrom);
       workingEpic.segments.push({ ...segment, from, to: from + duration });
     }
   }
