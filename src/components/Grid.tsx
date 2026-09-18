@@ -717,10 +717,13 @@ export default function Grid({
                           spotlight={isSpotlit(epic, seg)}
                           isDragging={(livePreview?.type === 'segment' && livePreview.segmentId === seg.id) || !!isEpicDragging}
                           dragOffsetX={isEpicDragging ? epicDragOffsetPx : null}
+                          cutoffIndex={cutoffIndex}
+                          currentSprint={currentSprint}
                           onBodyPointerDown={(e) => startSegmentMove(e, epic, seg)}
                           onLeftHandlePointerDown={(e) => startResizeLeft(e, epic, seg)}
                           onRightHandlePointerDown={(e) => startResizeRight(e, epic, seg)}
                           onEdit={(x, y) => openSegmentEditor(epic.id, seg.id, seg.from, x, y)}
+                          onEditNote={(sprintIndex, x, y) => openSegmentEditor(epic.id, seg.id, sprintIndex, x, y)}
                         />
                       );
                     })}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { Segment } from '../types';
 import { contrastTextColor, hexToRgba } from '../lib/color';
 import type { LoadStatus } from '../lib/load';
@@ -16,10 +16,13 @@ interface Props {
   spotlight: boolean;
   isDragging: boolean;
   dragOffsetX: number | null;
+  cutoffIndex: number;
+  currentSprint: number;
   onBodyPointerDown: (e: React.PointerEvent) => void;
   onLeftHandlePointerDown: (e: React.PointerEvent) => void;
   onRightHandlePointerDown: (e: React.PointerEvent) => void;
   onEdit: (x: number, y: number) => void;
+  onEditNote: (sprintIndex: number, x: number, y: number) => void;
 }
 
 const GAP = 3;
@@ -38,15 +41,29 @@ export default function SegmentBar({
   spotlight,
   isDragging,
   dragOffsetX,
+  cutoffIndex,
+  currentSprint,
   onBodyPointerDown,
   onLeftHandlePointerDown,
   onRightHandlePointerDown,
   onEdit,
+  onEditNote,
 }: Props) {
   const bg = segment.color ?? roleColor;
   const left = from * colWidth + (mergeLeft ? 0 : GAP);
   const width = (to - from + 1) * colWidth - (mergeLeft ? 0 : GAP) - (mergeRight ? 0 : GAP);
-  const noteCount = segment.notes ? Object.keys(segment.notes).length : 0;
+
+  const noteMarkers = useMemo(() => {
+    if (!segment.notes) return [];
+    return Object.entries(segment.notes)
+      .map(([key, text]) => ({ sprintIndex: Number(key), text }))
+      .filter((n) => Number.isInteger(n.sprintIndex) && typeof n.text === 'string' && n.text.trim().length > 0)
+      .filter((n) => n.sprintIndex - cutoffIndex >= from && n.sprintIndex - cutoffIndex <= to);
+  }, [segment.notes, cutoffIndex, from, to]);
+
+  const currentDisplay = currentSprint - cutoffIndex;
+  const showLens = currentSprint >= 0 && currentDisplay >= from && currentDisplay <= to;
+  const lensLeft = (currentDisplay - from) * colWidth;
 
   const [justMerged, setJustMerged] = useState(false);
   const prevMergeRef = useRef({ left: mergeLeft, right: mergeRight });
@@ -101,13 +118,29 @@ export default function SegmentBar({
       />
       <div className="seg-body" onPointerDown={onBodyPointerDown}>
         <span className="seg-label">{segment.label}</span>
-        {noteCount > 0 && <span className="seg-note-dot" title={`Комментариев: ${noteCount}`} />}
       </div>
       <div
         className="seg-handle seg-handle-right"
         style={{ width: HANDLE_W }}
         onPointerDown={onRightHandlePointerDown}
       />
+      {showLens && <span className="segment-lens" style={{ left: lensLeft, width: colWidth }} aria-hidden="true" />}
+      {noteMarkers.map((n) => (
+        <button
+          key={n.sprintIndex}
+          type="button"
+          className="seg-note-marker"
+          style={{ left: (n.sprintIndex - cutoffIndex - from + 0.5) * colWidth }}
+          title={n.text}
+          aria-label={`Заметка к спринту: ${n.text}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onEditNote(n.sprintIndex, event.clientX, event.clientY);
+          }}
+        >
+          <span aria-hidden="true">❝</span>
+        </button>
+      ))}
     </div>
   );
 }
