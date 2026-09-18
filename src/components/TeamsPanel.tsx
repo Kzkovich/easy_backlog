@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Person, Plan, RoleDef, RoleId, Team, TeamId } from '../types';
 import { nextRoleColor } from '../lib/roles';
 import { isSharedRole } from '../lib/load';
-import { sprintNumbersLabel } from '../lib/teams';
+import { nextTeamColor, sprintNumbersLabel } from '../lib/teams';
 
 interface Props {
   plan: Plan;
@@ -61,7 +61,7 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
 
   function addTeam() {
     const base = teams[0]?.sprintBase ?? 1;
-    const team: Team = { id: uid('team'), name: 'Новая команда', shortName: 'НОВ', sprintBase: base };
+    const team: Team = { id: uid('team'), name: 'Новая команда', shortName: 'НОВ', sprintBase: base, color: nextTeamColor(teams) };
     updatePlan((p) => ({ ...p, teams: [...p.teams, team] }));
   }
 
@@ -178,6 +178,7 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
           <div className="team-table">
             <div className="team-table-head">
               <span />
+              <span />
               <span>Название</span>
               <span>Кратко</span>
               <span title="Номер текущего спринта у этой команды">№ спринта сейчас</span>
@@ -194,6 +195,14 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
                 >
                   ↑
                 </button>
+                <input
+                  type="color"
+                  className="color-swatch"
+                  value={team.color}
+                  title="Метка команды на карточках фич"
+                  aria-label={`Цвет метки команды «${team.name}»`}
+                  onChange={(e) => mutateTeam(team.id, (t) => ({ ...t, color: e.target.value }))}
+                />
                 <input
                   type="text"
                   value={team.name}

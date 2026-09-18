@@ -1,13 +1,26 @@
 import { useState } from 'react';
-import type { Epic, EpicStatus, EffectKind, Team, TeamId } from '../types';
+import type { Epic, EpicStatus, EffectKind, PlannedSegment, RoleDef, Sprint, Team, TeamId } from '../types';
 
 interface Props {
   epic: Epic | null; // null = создание новой фичи
   teams: Team[];
+  roles: RoleDef[];
+  sprints: Sprint[];
   defaultTeamIds: TeamId[];
   onSave: (epic: Epic) => void;
   onDelete?: () => void;
   onClose: () => void;
+}
+
+function makePlannedId() {
+  return `planned-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+}
+
+function sprintDateHint(sprints: Sprint[], index: number): string {
+  const s = sprints[index];
+  if (!s) return '';
+  const [, m, d] = s.dateFrom.split('-');
+  return `${d}.${m}`;
 }
 
 const STATUSES: EpicStatus[] = ['бэклог', 'дискавери', 'разработка', 'тест', 'раскатка', 'готово', 'перенесён'];
@@ -17,7 +30,7 @@ function makeId() {
   return `epic-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export default function EpicFormPanel({ epic, teams, defaultTeamIds, onSave, onDelete, onClose }: Props) {
+export default function EpicFormPanel({ epic, teams, roles, sprints, defaultTeamIds, onSave, onDelete, onClose }: Props) {
   const [title, setTitle] = useState(epic?.title ?? '');
   const [teamIds, setTeamIds] = useState<TeamId[]>(epic?.teams ?? defaultTeamIds);
   const [status, setStatus] = useState<EpicStatus>(epic?.status ?? 'бэклог');
@@ -25,8 +38,23 @@ export default function EpicFormPanel({ epic, teams, defaultTeamIds, onSave, onD
   const [effect2026, setEffect2026] = useState(epic?.effect2026?.toString() ?? '');
   const [effectKind, setEffectKind] = useState<EffectKind>(epic?.effectKind ?? null);
   const [notes, setNotes] = useState(epic?.notes ?? '');
+  const [plannedSegments, setPlannedSegments] = useState<PlannedSegment[]>(epic?.plannedSegments ?? []);
 
   const isNew = epic === null;
+  const maxSprintIndex = Math.max(0, sprints.length - 1);
+
+  function addPlanned() {
+    if (roles.length === 0) return;
+    setPlannedSegments((prev) => [...prev, { id: makePlannedId(), role: roles[0].id, from: 0, to: 0, label: '' }]);
+  }
+
+  function updatePlanned(id: string, patch: Partial<PlannedSegment>) {
+    setPlannedSegments((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  }
+
+  function removePlanned(id: string) {
+    setPlannedSegments((prev) => prev.filter((p) => p.id !== id));
+  }
 
   function handleSave() {
     if (!title.trim()) return;
@@ -44,7 +72,7 @@ export default function EpicFormPanel({ epic, teams, defaultTeamIds, onSave, onD
       notes,
       links: epic?.links ?? [],
       segments: epic?.segments ?? [],
-      plannedSegments: epic?.plannedSegments ?? [],
+      plannedSegments,
     };
     onSave(result);
   }
@@ -117,6 +145,64 @@ export default function EpicFormPanel({ epic, teams, defaultTeamIds, onSave, onD
           Заметки
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
         </label>
+
+        <div className="field-group">
+          <span className="field-label">Плановые сроки на начало года</span>
+          <p className="hint">
+            Ориентир на фоне колбасок: когда роль должна была начать и закончить по плану. Из Excel подтягивается
+            серой заливкой автоматически; здесь можно поправить руками.
+          </p>
+          {plannedSegments.map((p) => (
+            <div className="planned-row" key={p.id}>
+              <select
+                value={p.role}
+                aria-label="Роль планового отрезка"
+                onChange={(e) => updatePlanned(p.id, { role: e.target.value })}
+              >
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+              <label className="planned-sprint-field">
+                <input
+                  type="number"
+                  min={0}
+                  max={maxSprintIndex}
+                  value={p.from}
+                  aria-label="Спринт начала по плану"
+                  onChange={(e) => {
+                    const v = Math.max(0, Math.min(maxSprintIndex, Number(e.target.value) || 0));
+                    updatePlanned(p.id, { from: v, to: Math.max(v, p.to) });
+                  }}
+                />
+                <span>{sprintDateHint(sprints, p.from)}</span>
+              </label>
+              <span aria-hidden="true">—</span>
+              <label className="planned-sprint-field">
+                <input
+                  type="number"
+                  min={0}
+                  max={maxSprintIndex}
+                  value={p.to}
+                  aria-label="Спринт конца по плану"
+                  onChange={(e) => {
+                    const v = Math.max(0, Math.min(maxSprintIndex, Number(e.target.value) || 0));
+                    updatePlanned(p.id, { to: v, from: Math.min(v, p.from) });
+                  }}
+                />
+                <span>{sprintDateHint(sprints, p.to)}</span>
+              </label>
+              <button className="icon-btn" title="Убрать плановый отрезок" aria-label="Убрать плановый отрезок" onClick={() => removePlanned(p.id)}>
+                ✕
+              </button>
+            </div>
+          ))}
+          <button className="role-add-btn" onClick={addPlanned} disabled={roles.length === 0}>
+            + план по роли
+          </button>
+        </div>
 
         {!isNew && (
           <p className="hint">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Epic, Plan } from './types';
+import type { Epic, Plan, Segment } from './types';
 import Grid from './components/Grid';
 import EpicFormPanel from './components/EpicFormPanel';
 import TeamsPanel from './components/TeamsPanel';
@@ -13,6 +13,10 @@ import { currentQuarterCutoffIndex, currentSprintIndex } from './lib/calendar';
 
 const ZOOM_WIDTH: Record<ZoomLevel, number> = { compact: 64, normal: 92 };
 type ViewMode = 'detailed' | 'management';
+type LastDeleted =
+  | { type: 'epic'; epic: Epic; index: number }
+  | { type: 'segment'; epicId: string; segment: Segment }
+  | null;
 
 function readLocal<T extends string>(key: string, fallback: T): T {
   return (localStorage.getItem(key) as T) || fallback;
@@ -41,6 +45,7 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [panelTarget, setPanelTarget] = useState<string | 'new' | null>(null);
+  const [lastDeleted, setLastDeleted] = useState<LastDeleted>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const teamsButtonRef = useRef<HTMLButtonElement>(null);
   const gridScrollRef = useRef<HTMLDivElement>(null);
@@ -169,8 +174,36 @@ export default function App() {
   function handleDeleteEpic() {
     if (!panelEpic) return;
     if (!window.confirm(`Удалить фичу "${panelEpic.title}" вместе со всеми колбасками?`)) return;
+    const index = plan?.epics.findIndex((e) => e.id === panelEpic.id) ?? -1;
+    setLastDeleted({ type: 'epic', epic: panelEpic, index });
     updatePlan((p) => ({ ...p, epics: p.epics.filter((e) => e.id !== panelEpic.id) }));
     setPanelTarget(null);
+  }
+
+  function handleSegmentDeleted(epicId: string, segment: Segment) {
+    setLastDeleted({ type: 'segment', epicId, segment });
+  }
+
+  function undoLastDelete() {
+    if (!lastDeleted) return;
+    if (lastDeleted.type === 'epic') {
+      const { epic, index } = lastDeleted;
+      updatePlan((p) => {
+        if (p.epics.some((e) => e.id === epic.id)) return p;
+        const next = [...p.epics];
+        next.splice(Math.max(0, Math.min(index, next.length)), 0, epic);
+        return { ...p, epics: next };
+      });
+    } else {
+      const { epicId, segment } = lastDeleted;
+      updatePlan((p) => ({
+        ...p,
+        epics: p.epics.map((e) =>
+          e.id === epicId && !e.segments.some((s) => s.id === segment.id) ? { ...e, segments: [...e.segments, segment] } : e
+        ),
+      }));
+    }
+    setLastDeleted(null);
   }
 
   async function handleLogout() {
@@ -179,6 +212,7 @@ export default function App() {
     setUser(null);
     setPlan(null);
     setDirty(false);
+    setLastDeleted(null);
   }
 
   if (authLoading) {
@@ -240,6 +274,11 @@ export default function App() {
 
         <div className="spacer" />
 
+        {lastDeleted && (
+          <button className="btn undo-btn" onClick={undoLastDelete} title="Вернуть последнее удалённое">
+            ↺ Вернуть «{lastDeleted.type === 'epic' ? lastDeleted.epic.title : lastDeleted.segment.label || 'колбаску'}»
+          </button>
+        )}
         {error && <span className="status-line error" role="status">{error}</span>}
         <button
           className={`btn${dirty ? ' primary' : ' saved'}`}
@@ -318,6 +357,7 @@ export default function App() {
               }}
               updatePlan={updatePlan}
               onEditEpic={setPanelTarget}
+              onSegmentDeleted={handleSegmentDeleted}
             />
           )}
 
@@ -353,6 +393,8 @@ export default function App() {
             key={panelTarget}
             epic={panelTarget === 'new' ? null : panelEpic}
             teams={plan.teams}
+            roles={plan.roles}
+            sprints={plan.sprints}
             defaultTeamIds={teamFilter === 'ALL' ? plan.teams.slice(0, 1).map((t) => t.id) : [teamFilter]}
             onSave={handleSaveEpic}
             onDelete={panelTarget !== 'new' ? handleDeleteEpic : undefined}

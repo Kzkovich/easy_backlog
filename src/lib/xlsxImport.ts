@@ -1,9 +1,11 @@
 import * as XLSX from 'xlsx';
-import type { Epic, RoleDef, Sprint, Team } from '../types';
+import type { Epic, PlannedSegment, RoleDef, Segment, Sprint, Team } from '../types';
 import { matchRoleFromExcelLabel } from './roles';
 
 // Импорт из Excel — раздел 7 спеки. Лист "Планирование 2026".
 // Источник истины для колбасок — заливка ячейки, не текст в E/F.
+// Серая заливка — не «игнорировать»: это плановые сроки, которые владелец
+// продукта проставил в начале года (ориентир на фоне факта).
 
 const SHEET_NAME = 'Планирование 2026';
 const HEADER_ROW_JHD = 4; // строка 5, 0-индекс
@@ -13,7 +15,8 @@ const COL_B = 1; // название эпика
 const COL_C = 2; // этап (роль)
 const HEADER_SCAN_MAX_COL = 100; // с запасом — где искать столбцы спринтов
 
-const GRAY_FILLS = new Set(['D9D9D9', 'BFBFBF', 'A6A6A6', 'F2F2F2', 'E7E6E6', 'D0CECE', 'FFFFFF']);
+const EMPTY_FILLS = new Set(['FFFFFF']); // действительно пустая ячейка
+const GRAY_FILLS = new Set(['D9D9D9', 'BFBFBF', 'A6A6A6', 'F2F2F2', 'E7E6E6', 'D0CECE']); // план на начало года
 const RISK_FILLS = new Set(['E06666', 'F4CCCC', 'FCE5CD']);
 
 // Порядок соответствует стандартной палитре темы Office (индексация Excel UI,
@@ -82,6 +85,35 @@ function sprintIndexByTeamNumber(teams: Team[], teamId: string, num: number, spr
 export interface ImportResult {
   epics: Epic[];
   warnings: string[];
+}
+
+/** Копит подряд идущие закрашенные ячейки в один отрезок (разрыв — новый отрезок). */
+function makeRunTracker(onFlush: (from: number, to: number, texts: string[], risk: boolean) => void) {
+  let start: number | null = null;
+  let end: number | null = null;
+  let texts: string[] = [];
+  let risk = false;
+  function flush() {
+    if (start === null || end === null) return;
+    onFlush(start, end, texts, risk);
+    start = null;
+    end = null;
+    texts = [];
+    risk = false;
+  }
+  function feed(active: boolean, sprintIdx: number, prevSprintIdx: number | null, text: string, isRisk: boolean) {
+    const isAdjacent = end !== null && prevSprintIdx === end;
+    if (active) {
+      if (start !== null && !isAdjacent) flush();
+      if (start === null) start = sprintIdx;
+      end = sprintIdx;
+      if (isRisk) risk = true;
+      if (text) texts.push(text);
+    } else {
+      flush();
+    }
+  }
+  return { feed, flush };
 }
 
 export function parsePlanWorkbook(data: ArrayBuffer, sprints: Sprint[], teams: Team[], roles: RoleDef[]): ImportResult {
@@ -165,51 +197,53 @@ export function parsePlanWorkbook(data: ArrayBuffer, sprints: Sprint[], teams: T
       continue;
     }
 
-    let runStartSprint: number | null = null;
-    let runEndSprint: number | null = null;
-    let runTexts: string[] = [];
-    let runRisk = false;
     let segCounter = 0;
+    let plannedCounter = 0;
+    const epicForClosures = currentEpic;
 
-    const flushRun = () => {
-      if (runStartSprint === null || runEndSprint === null) return;
+    const realTracker = makeRunTracker((from, to, texts, risk) => {
       segCounter += 1;
-      currentEpic!.segments.push({
-        id: `${currentEpic!.id}-${role}-${segCounter}`,
+      const seg: Segment = {
+        id: `${epicForClosures.id}-${role}-${segCounter}`,
         role,
-        from: runStartSprint,
-        to: runEndSprint,
-        label: runTexts.filter(Boolean).join(' ').trim(),
+        from,
+        to,
+        label: texts.filter(Boolean).join(' ').trim(),
         color: null,
-        flag: runRisk ? 'risk' : null,
-      });
-      runStartSprint = null;
-      runEndSprint = null;
-      runTexts = [];
-      runRisk = false;
-    };
+        flag: risk ? 'risk' : null,
+      };
+      epicForClosures.segments.push(seg);
+    });
+    const plannedTracker = makeRunTracker((from, to, texts) => {
+      plannedCounter += 1;
+      const seg: PlannedSegment = {
+        id: `${epicForClosures.id}-${role}-planned-${plannedCounter}`,
+        role,
+        from,
+        to,
+        label: texts.filter(Boolean).join(' ').trim(),
+      };
+      epicForClosures.plannedSegments = epicForClosures.plannedSegments ?? [];
+      epicForClosures.plannedSegments.push(seg);
+    });
 
     for (let i = 0; i < sortedCols.length; i++) {
       const c = sortedCols[i];
       const sprintIdx = colToSprintIndex.get(c)!;
       const cell = ws[XLSX.utils.encode_cell({ r, c })];
       const hex = getFillHex(cell);
-      const filled = !!hex && !GRAY_FILLS.has(hex);
+      const isEmpty = !hex || EMPTY_FILLS.has(hex);
+      const isGray = !isEmpty && GRAY_FILLS.has(hex);
+      const isReal = !isEmpty && !isGray;
       const prevSprintIdx = i > 0 ? colToSprintIndex.get(sortedCols[i - 1])! : null;
-      const isAdjacentToRun = runEndSprint !== null && prevSprintIdx === runEndSprint;
+      const text = cell?.v != null ? String(cell.v).trim() : '';
+      const isRisk = !!hex && RISK_FILLS.has(hex);
 
-      if (filled) {
-        if (runStartSprint !== null && !isAdjacentToRun) flushRun();
-        if (runStartSprint === null) runStartSprint = sprintIdx;
-        runEndSprint = sprintIdx;
-        if (hex && RISK_FILLS.has(hex)) runRisk = true;
-        const text = cell?.v != null ? String(cell.v).trim() : '';
-        if (text) runTexts.push(text);
-      } else {
-        flushRun();
-      }
+      realTracker.feed(isReal, sprintIdx, prevSprintIdx, text, isRisk);
+      plannedTracker.feed(isGray, sprintIdx, prevSprintIdx, text, false);
     }
-    flushRun();
+    realTracker.flush();
+    plannedTracker.flush();
   }
 
   return { epics, warnings };

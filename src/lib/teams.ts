@@ -1,6 +1,13 @@
 import type { Epic, PlannedSegment, Plan, RoleDef, Segment, Team } from '../types';
 import { DEFAULT_ROLES } from './roles';
 
+// Палитра меток команд — по кругу, отличается от палитры ролей, чтобы легче различать.
+const TEAM_PALETTE = ['#0AA2C0', '#F97316', '#7C3AED', '#16A34A', '#DB2777', '#0EA5E9', '#CA8A04', '#DC2626'];
+
+export function nextTeamColor(existing: Team[]): string {
+  return TEAM_PALETTE[existing.length % TEAM_PALETTE.length];
+}
+
 export function sprintNumber(team: Team, sprintIndex: number): number {
   return team.sprintBase + sprintIndex;
 }
@@ -75,13 +82,14 @@ export function normalizePlan(raw: any): Plan {
           LEGACY_HEADER_ORDER.indexOf(String(a.id).toLowerCase()) - LEGACY_HEADER_ORDER.indexOf(String(b.id).toLowerCase())
       )
     : rawTeams;
-  const teams: Team[] = ordered.map((t: any) => ({
+  const teams: Team[] = ordered.map((t: any, i: number) => ({
     id: String(t.id),
     name: t.name ?? String(t.id),
     shortName: t.shortName ?? String(t.id),
     sprintBase: typeof t.sprintBase === 'number' ? t.sprintBase : legacySprintBase(raw, t.id),
+    color: typeof t.color === 'string' ? t.color : TEAM_PALETTE[i % TEAM_PALETTE.length],
   }));
-  if (teams.length === 0) teams.push({ id: 'team-1', name: 'Команда', shortName: 'К1', sprintBase: 1 });
+  if (teams.length === 0) teams.push({ id: 'team-1', name: 'Команда', shortName: 'К1', sprintBase: 1, color: TEAM_PALETTE[0] });
   const teamIds = teams.map((t) => t.id);
 
   const rawRoles: any[] = Array.isArray(raw.roles) ? raw.roles : [];

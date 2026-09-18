@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Segment } from '../types';
 import { contrastTextColor, hexToRgba } from '../lib/color';
 import type { LoadStatus } from '../lib/load';
@@ -10,6 +10,8 @@ interface Props {
   colWidth: number;
   from: number; // отображаемая позиция (может отличаться от segment.from во время перетаскивания)
   to: number;
+  mergeLeft: boolean;
+  mergeRight: boolean;
   status: LoadStatus | null;
   spotlight: boolean;
   isDragging: boolean;
@@ -30,6 +32,8 @@ export default function SegmentBar({
   colWidth,
   from,
   to,
+  mergeLeft,
+  mergeRight,
   status,
   spotlight,
   isDragging,
@@ -40,15 +44,31 @@ export default function SegmentBar({
   onEdit,
 }: Props) {
   const bg = segment.color ?? roleColor;
-  const left = from * colWidth + GAP;
-  const width = (to - from + 1) * colWidth - GAP * 2;
+  const left = from * colWidth + (mergeLeft ? 0 : GAP);
+  const width = (to - from + 1) * colWidth - (mergeLeft ? 0 : GAP) - (mergeRight ? 0 : GAP);
   const noteCount = segment.notes ? Object.keys(segment.notes).length : 0;
+
+  const [justMerged, setJustMerged] = useState(false);
+  const prevMergeRef = useRef({ left: mergeLeft, right: mergeRight });
+  useEffect(() => {
+    const prev = prevMergeRef.current;
+    if ((mergeLeft && !prev.left) || (mergeRight && !prev.right)) {
+      setJustMerged(true);
+      const timer = window.setTimeout(() => setJustMerged(false), 420);
+      prevMergeRef.current = { left: mergeLeft, right: mergeRight };
+      return () => window.clearTimeout(timer);
+    }
+    prevMergeRef.current = { left: mergeLeft, right: mergeRight };
+  }, [mergeLeft, mergeRight]);
 
   const classes = ['segment-bar'];
   if (segment.flag === 'risk') classes.push('risk');
   if (status) classes.push(`overlap-${status}`);
   if (spotlight) classes.push('spotlight');
   if (isDragging) classes.push('dragging');
+  if (mergeLeft) classes.push('merge-left');
+  if (mergeRight) classes.push('merge-right');
+  if (justMerged) classes.push('just-merged');
 
   return (
     <div

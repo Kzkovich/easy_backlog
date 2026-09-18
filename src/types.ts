@@ -24,6 +24,7 @@ export interface Team {
   name: string;
   shortName: string;
   sprintBase: number; // номер спринта этой команды в календарном спринте с индексом 0
+  color: string; // метка команды на карточках фич
 }
 
 export type RoleId = string;

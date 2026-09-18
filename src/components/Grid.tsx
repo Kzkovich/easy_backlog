@@ -24,6 +24,7 @@ interface Props {
   onHScroll: (x: number) => void;
   updatePlan: (fn: (p: Plan) => Plan) => void;
   onEditEpic: (epicId: string) => void;
+  onSegmentDeleted: (epicId: string, segment: Segment) => void;
 }
 
 type LivePreview =
@@ -97,6 +98,7 @@ export default function Grid({
   onHScroll,
   updatePlan,
   onEditEpic,
+  onSegmentDeleted,
 }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [livePreview, setLivePreview] = useState<LivePreview>(null);
@@ -558,6 +560,14 @@ export default function Grid({
                 <span className="reorder-handle" onPointerDown={(e) => startEpicReorder(e, epic)} title="Перетащить, чтобы изменить порядок">
                   ⠿
                 </span>
+                {epic.teams.length > 0 && (
+                  <span className="epic-team-chips" aria-hidden="true" title={teamsBadge(plan.teams, epic.teams)}>
+                    {epic.teams.map((teamId) => {
+                      const team = plan.teams.find((t) => t.id === teamId);
+                      return team ? <span key={teamId} className="epic-team-chip" style={{ background: team.color }} /> : null;
+                    })}
+                  </span>
+                )}
                 <button
                   type="button"
                   className={`collapse-arrow epic-collapse${isCollapsed ? ' collapsed' : ''}`}
@@ -668,10 +678,30 @@ export default function Grid({
                     aria-label={`${role.label}, фича «${epic.title}». Enter или пробел — добавить колбаску в ближайший свободный спринт`}
                     title="Двойной клик по свободному месту — добавить колбаску"
                   >
+                    {(epic.plannedSegments ?? [])
+                      .filter((p) => p.role === role.id)
+                      .map((p) => {
+                        const disp = toDisplayRange(p.from, p.to);
+                        if (!disp) return null;
+                        const left = disp.from * colWidth;
+                        const width = (disp.to - disp.from + 1) * colWidth;
+                        const planColor = roleColorOf(plan.roles, role.id);
+                        return (
+                          <div
+                            key={p.id}
+                            className="planned-ghost"
+                            style={{ left, width, ['--plan-color' as string]: planColor }}
+                            title={`План: ${p.label || role.label} · спринты ${p.from}–${p.to}`}
+                            aria-hidden="true"
+                          />
+                        );
+                      })}
                     {segs.map((seg) => {
                       const real = liveRealRange(epic, seg);
                       const disp = toDisplayRange(real.from, real.to);
                       if (!disp) return null;
+                      const mergeLeft = segs.some((other) => other.id !== seg.id && liveRealRange(epic, other).to === real.from - 1);
+                      const mergeRight = segs.some((other) => other.id !== seg.id && liveRealRange(epic, other).from === real.to + 1);
                       return (
                         <SegmentBar
                           key={seg.id}
@@ -681,6 +711,8 @@ export default function Grid({
                           colWidth={colWidth}
                           from={disp.from}
                           to={disp.to}
+                          mergeLeft={mergeLeft}
+                          mergeRight={mergeRight}
                           status={segmentLoadStatus(epic, seg)}
                           spotlight={isSpotlit(epic, seg)}
                           isDragging={(livePreview?.type === 'segment' && livePreview.segmentId === seg.id) || !!isEpicDragging}
@@ -785,6 +817,7 @@ export default function Grid({
                 setPopover(null);
               }}
               onDelete={() => {
+                onSegmentDeleted(epic.id, seg);
                 mutateEpic(epic.id, (ep) => ({ ...ep, segments: ep.segments.filter((s) => s.id !== seg.id) }));
                 setPopover(null);
               }}
