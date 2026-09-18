@@ -950,10 +950,9 @@ body {
 .segment-bar {
   position: absolute;
   isolation: isolate;
-  top: 3px;
-  bottom: 5px;
+  top: 2px;
+  bottom: 3px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--segment-color, var(--accent)) 72%, rgba(255, 255, 255, 0.72));
   border-radius: 10px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.52) 0%, rgba(255, 255, 255, 0.13) 34%, rgba(0, 0, 0, 0.17) 100%),
@@ -1046,9 +1045,9 @@ body {
     inset 0 3px 2px rgba(255, 255, 255, 0.66),
     inset 0 -3px 4px rgba(13, 28, 43, 0.2),
     0 5px 0 color-mix(in srgb, var(--segment-color, var(--accent)) 54%, #172331),
-    0 12px 20px rgba(22, 37, 48, 0.3),
-    0 0 calc(18px * var(--glow-strength)) var(--segment-glow, transparent);
-  transform: translateY(-3px) scale(1.012);
+     0 12px 20px rgba(22, 37, 48, 0.3),
+     0 0 calc(18px * var(--glow-strength)) var(--segment-glow, transparent);
+  transform: translateY(-2px) scale(1.008);
 }
 
 .segment-bar:hover::after,
@@ -1196,8 +1195,8 @@ body {
 
 .planned-ghost {
   position: absolute;
-  top: 3px;
-  bottom: 5px;
+  top: 2px;
+  bottom: 3px;
   z-index: 0;
   pointer-events: none;
   border-radius: 10px;
@@ -2761,19 +2760,19 @@ body {
 }
 
 @keyframes segment-arrive {
-  from { opacity: 0; transform: translateY(7px) scaleY(0.72); }
+  from { opacity: 0; transform: translateY(4px) scaleY(0.85); }
   to { opacity: 1; transform: translateY(0) scaleY(1); }
 }
 
 @keyframes segment-specular-in {
   0%, 22% { left: -52%; opacity: 0; }
-  42% { opacity: 0.8; }
+  42% { opacity: 0.42; }
   100% { left: 122%; opacity: 0; }
 }
 
 @keyframes segment-specular {
   0% { left: -52%; opacity: 0; }
-  28% { opacity: 0.88; }
+  28% { opacity: 0.48; }
   100% { left: 122%; opacity: 0; }
 }
 
