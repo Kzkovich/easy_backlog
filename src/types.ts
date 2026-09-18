@@ -96,7 +96,7 @@ export interface Epic {
   segments: Segment[];
   plannedFrom?: number; // плановый старт всей задачи (спринт) — серый контур
   plannedTo?: number; // плановый финиш всей задачи (спринт)
-  pipelineOverride?: Pipeline;
+  pipelineOverride?: Pipeline | null;
   visibleRoles?: RoleId[]; // какие роли показывать строками; undefined = все роли (обратная совместимость)
 }
 

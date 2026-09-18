@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import type { Epic, EpicStatus, EffectKind, RoleDef, Sprint, Team, TeamId } from '../types';
+import type { Epic, EpicStatus, EffectKind, Pipeline, RoleDef, Sprint, Team, TeamId } from '../types';
+import PipelineEditor from './PipelineEditor';
+import { defaultPipeline } from '../lib/scheduler';
 
 interface Props {
   epic: Epic | null; // null = создание новой фичи
@@ -36,6 +38,7 @@ export default function EpicFormPanel({ epic, teams, roles, sprints, defaultTeam
   const [notes, setNotes] = useState(epic?.notes ?? '');
   const [plannedFrom, setPlannedFrom] = useState(epic?.plannedFrom?.toString() ?? '');
   const [plannedTo, setPlannedTo] = useState(epic?.plannedTo?.toString() ?? '');
+  const [override, setOverride] = useState<Pipeline | null>(epic?.pipelineOverride ?? null);
 
   const isNew = epic === null;
   const maxSprintIndex = Math.max(0, sprints.length - 1);
@@ -63,6 +66,7 @@ export default function EpicFormPanel({ epic, teams, roles, sprints, defaultTeam
       segments: epic?.segments ?? [],
       plannedFrom: from !== undefined && to !== undefined ? Math.min(from, to) : undefined,
       plannedTo: from !== undefined && to !== undefined ? Math.max(from, to) : undefined,
+      pipelineOverride: override,
     };
     onSave(result);
   }
@@ -177,6 +181,18 @@ export default function EpicFormPanel({ epic, teams, roles, sprints, defaultTeam
             перетаскивание и края меняют срок.
           </p>
         )}
+
+        <div className="field-group">
+          <span className="field-label">Свой пайплайн для фичи</span>
+          <button
+            type="button"
+            className="btn small"
+            onClick={() => setOverride((prev) => (prev ? null : defaultPipeline()))}
+          >
+            {override ? 'Использовать общий' : 'Задать свой пайплайн'}
+          </button>
+          {override !== null && <PipelineEditor pipeline={override} roles={roles} onChange={setOverride} />}
+        </div>
       </div>
       <div className="side-panel-footer">
         {!isNew && onDelete && (
