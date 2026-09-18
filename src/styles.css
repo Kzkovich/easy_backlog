@@ -542,7 +542,7 @@ body {
 
 .cell {
   border-bottom: 1px solid var(--border);
-  min-height: 30px;
+  min-height: 32px;
   display: flex;
   align-items: center;
   padding: 2px 6px;
@@ -950,12 +950,12 @@ body {
 .segment-bar {
   position: absolute;
   isolation: isolate;
-  top: 2px;
-  bottom: 3px;
+  top: 1px;
+  bottom: 2px;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: 11px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.52) 0%, rgba(255, 255, 255, 0.13) 34%, rgba(0, 0, 0, 0.17) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.48) 0%, rgba(255, 255, 255, 0.1) 40%, rgba(0, 0, 0, 0.16) 100%),
     var(--segment-color, var(--grad));
   display: flex;
   align-items: stretch;
@@ -963,10 +963,9 @@ body {
   font-weight: 650;
   color: rgba(0, 0, 0, 0.78);
   box-shadow:
-    inset 0 2px 1px rgba(255, 255, 255, 0.58),
-    inset 0 -3px 4px rgba(13, 28, 43, 0.24),
-    0 3px 0 color-mix(in srgb, var(--segment-color, var(--accent)) 58%, #172331),
-    0 6px 11px rgba(22, 37, 48, 0.24),
+    inset 0 2px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -2px 3px rgba(13, 28, 43, 0.18),
+    0 3px 6px rgba(22, 37, 48, 0.22),
     0 0 calc(12px * var(--glow-strength)) var(--segment-glow, transparent);
   transform-origin: center bottom;
   animation: segment-arrive 360ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -999,12 +998,11 @@ body {
     filter: brightness(1);
   }
   35% {
-    filter: brightness(1.35) saturate(1.2);
+    filter: brightness(1.32) saturate(1.16);
     box-shadow:
-      inset 0 2px 1px rgba(255, 255, 255, 0.58),
-      inset 0 -3px 4px rgba(13, 28, 43, 0.24),
-      0 3px 0 color-mix(in srgb, var(--segment-color, var(--accent)) 58%, #172331),
-      0 6px 11px rgba(22, 37, 48, 0.24),
+      inset 0 2px 1px rgba(255, 255, 255, 0.55),
+      inset 0 -2px 3px rgba(13, 28, 43, 0.18),
+      0 3px 8px rgba(22, 37, 48, 0.26),
       0 0 22px var(--segment-glow, transparent);
   }
   100% {
@@ -1016,37 +1014,42 @@ body {
   position: absolute;
   inset: 2px 8px 3px;
   z-index: 0;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 6px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 48%, rgba(0, 0, 0, 0.08));
+  border-radius: 7px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, transparent 55%, rgba(0, 0, 0, 0.05) 100%);
   content: '';
   pointer-events: none;
 }
 
 .segment-bar::after {
   position: absolute;
-  width: 34%;
-  height: 190%;
-  left: -52%;
-  top: -44%;
+  width: 56%;
+  height: 200%;
+  left: -68%;
+  top: -50%;
   z-index: 2;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.52), transparent);
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.16) 40%,
+    rgba(255, 255, 255, 0.4) 50%,
+    rgba(255, 255, 255, 0.16) 60%,
+    transparent 80%
+  );
   content: '';
   opacity: 0;
   pointer-events: none;
-  transform: skewX(-18deg);
-  animation: segment-specular-in 620ms 90ms ease-out 1;
+  transform: skewX(-14deg);
+  animation: segment-specular-in 760ms 110ms ease-out 1;
 }
 
 .segment-bar:hover,
 .segment-bar:focus-visible {
   filter: saturate(1.12) brightness(1.05);
   box-shadow:
-    inset 0 3px 2px rgba(255, 255, 255, 0.66),
-    inset 0 -3px 4px rgba(13, 28, 43, 0.2),
-    0 5px 0 color-mix(in srgb, var(--segment-color, var(--accent)) 54%, #172331),
-     0 12px 20px rgba(22, 37, 48, 0.3),
-     0 0 calc(18px * var(--glow-strength)) var(--segment-glow, transparent);
+    inset 0 3px 2px rgba(255, 255, 255, 0.6),
+    inset 0 -2px 3px rgba(13, 28, 43, 0.16),
+    0 5px 12px rgba(22, 37, 48, 0.28),
+    0 0 calc(18px * var(--glow-strength)) var(--segment-glow, transparent);
   transform: translateY(-2px) scale(1.008);
 }
 
@@ -1060,34 +1063,22 @@ body {
   z-index: 5;
   filter: saturate(1.16) brightness(1.06);
   box-shadow:
-    inset 0 3px 2px rgba(255, 255, 255, 0.68),
-    inset 0 -3px 4px rgba(13, 28, 43, 0.18),
-    0 7px 0 color-mix(in srgb, var(--segment-color, var(--accent)) 50%, #172331),
-    0 18px 26px rgba(22, 37, 48, 0.34),
+    inset 0 3px 2px rgba(255, 255, 255, 0.66),
+    inset 0 -2px 3px rgba(13, 28, 43, 0.16),
+    0 8px 16px rgba(22, 37, 48, 0.3),
     0 0 calc(20px * var(--glow-strength)) var(--segment-glow, transparent);
   transform: translateY(-4px) scale(1.016);
 }
 
-.segment-bar.risk {
-  outline: 2px solid var(--risk-outline);
-  outline-offset: -2px;
-}
-
-.segment-bar.overlap-tight {
-  outline: 2px solid var(--warn-outline);
-  outline-offset: -2px;
-}
-
-.segment-bar.overlap-over,
-.segment-bar.overlap-nocap {
-  outline: 2px solid var(--risk-outline);
-  outline-offset: -2px;
-}
-
 .segment-bar.spotlight {
-  outline: 3px solid var(--accent);
-  outline-offset: 1px;
   z-index: 4;
+  filter: brightness(1.1) saturate(1.12);
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -2px 3px rgba(13, 28, 43, 0.18),
+    0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent),
+    0 4px 10px rgba(22, 37, 48, 0.26),
+    0 0 22px var(--segment-glow, transparent);
 }
 
 .segment-bar.management-bar {
@@ -1195,8 +1186,8 @@ body {
 
 .planned-ghost {
   position: absolute;
-  top: 2px;
-  bottom: 3px;
+  top: 1px;
+  bottom: 2px;
   z-index: 0;
   pointer-events: none;
   border-radius: 10px;
@@ -2367,27 +2358,24 @@ body {
 
 :root[data-theme='ceramic'] .segment-bar {
   top: 1px;
-  bottom: 7px;
-  border-color: rgba(255, 255, 255, 0.54);
+  bottom: 2px;
   border-radius: 11px;
   background:
-    radial-gradient(120% 90% at 28% 0%, rgba(255, 255, 255, 0.58), transparent 48%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.08) 38%, rgba(23, 51, 69, 0.24) 100%),
+    radial-gradient(120% 90% at 28% 0%, rgba(255, 255, 255, 0.5), transparent 48%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0.08) 38%, rgba(23, 51, 69, 0.2) 100%),
     var(--segment-color, var(--grad));
   box-shadow:
-    inset 0 3px 2px rgba(255, 255, 255, 0.68),
-    inset 0 -5px 7px rgba(24, 46, 70, 0.26),
-    0 4px 0 color-mix(in srgb, var(--segment-color, var(--accent)) 47%, #49606c),
-    0 10px 17px rgba(34, 66, 77, 0.24),
+    inset 0 3px 2px rgba(255, 255, 255, 0.62),
+    inset 0 -3px 5px rgba(24, 46, 70, 0.2),
+    0 4px 9px rgba(34, 66, 77, 0.24),
     0 0 14px var(--segment-glow, transparent);
 }
 
 :root[data-theme='ceramic'] .segment-bar::before {
-  inset: 2px 9px 4px;
-  border-color: rgba(255, 255, 255, 0.34);
+  inset: 2px 9px 3px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.27), transparent 42%),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.08), rgba(18, 56, 73, 0.08), rgba(255, 255, 255, 0.08));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), transparent 46%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(18, 56, 73, 0.06), rgba(255, 255, 255, 0.06));
 }
 
 :root[data-theme='ceramic'] .segment-bar:hover,
@@ -2395,15 +2383,14 @@ body {
 :root[data-theme='ceramic'] .segment-bar.dragging {
   filter: saturate(1.14) brightness(1.06);
   box-shadow:
-    inset 0 3px 2px rgba(255, 255, 255, 0.76),
-    inset 0 -5px 7px rgba(24, 46, 70, 0.21),
-    0 6px 0 color-mix(in srgb, var(--segment-color, var(--accent)) 43%, #49606c),
-    0 17px 25px rgba(34, 66, 77, 0.3),
+    inset 0 3px 2px rgba(255, 255, 255, 0.7),
+    inset 0 -3px 5px rgba(24, 46, 70, 0.18),
+    0 7px 14px rgba(34, 66, 77, 0.28),
     0 0 21px var(--segment-glow, transparent);
 }
 
 :root[data-theme='ceramic'] .segment-bar:active:not(.dragging) {
-  box-shadow: inset 0 4px 7px rgba(28, 51, 69, 0.25), 0 2px 0 rgba(52, 79, 98, 0.34);
+  box-shadow: inset 0 4px 7px rgba(28, 51, 69, 0.22), 0 2px 4px rgba(52, 79, 98, 0.28);
   transform: translateY(2px) scale(0.995);
 }
 
@@ -2766,13 +2753,13 @@ body {
 
 @keyframes segment-specular-in {
   0%, 22% { left: -52%; opacity: 0; }
-  42% { opacity: 0.42; }
+  42% { opacity: 0.6; }
   100% { left: 122%; opacity: 0; }
 }
 
 @keyframes segment-specular {
   0% { left: -52%; opacity: 0; }
-  28% { opacity: 0.48; }
+  28% { opacity: 0.65; }
   100% { left: 122%; opacity: 0; }
 }
 
