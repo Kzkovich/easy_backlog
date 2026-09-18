@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { Epic, Sprint, Team } from '../types';
+import type { Epic, RoleDef, Sprint, Team } from '../types';
 import { matchRoleFromExcelLabel } from './roles';
 
 // Импорт из Excel — раздел 7 спеки. Лист "Планирование 2026".
@@ -84,7 +84,7 @@ export interface ImportResult {
   warnings: string[];
 }
 
-export function parsePlanWorkbook(data: ArrayBuffer, sprints: Sprint[], teams: Team[]): ImportResult {
+export function parsePlanWorkbook(data: ArrayBuffer, sprints: Sprint[], teams: Team[], roles: RoleDef[]): ImportResult {
   const wb = XLSX.read(data, { type: 'array', cellStyles: true, cellDates: true });
   const warnings: string[] = [];
   const sheetName = wb.SheetNames.find((n) => n.trim() === SHEET_NAME) ?? wb.SheetNames[0];
@@ -159,7 +159,7 @@ export function parsePlanWorkbook(data: ArrayBuffer, sprints: Sprint[], teams: T
       continue;
     }
 
-    const role = matchRoleFromExcelLabel(roleRaw);
+    const role = matchRoleFromExcelLabel(roleRaw, roles);
     if (!role) {
       warnings.push(`Строка ${r + 1}: не распознана роль "${roleRaw}", строка пропущена`);
       continue;

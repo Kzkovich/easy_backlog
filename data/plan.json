@@ -1232,20 +1232,92 @@
       "okPerPerson": 2,
       "okPerPersonShared": 1
     },
-    "rolloutDeadlineOffsetFromFreeze": 3,
-    "colors": {
-      "business": "#B7B7B7",
-      "grooming": "#D9D9D9",
-      "design": "#B6D7A8",
-      "android": "#D9D2E9",
-      "ios": "#351C75",
-      "web": "#8E7CC3",
-      "midl": "#783F04",
-      "analytics": "#CFE2F3",
-      "testing": "#F9CB9C",
-      "ek": "#990000",
-      "rollout": "#3C78D8",
-      "docs": "#FFD966"
+    "rolloutDeadlineOffsetFromFreeze": 3
+  },
+  "roles": [
+    {
+      "id": "business",
+      "label": "Бизнес",
+      "color": "#94A3B8",
+      "capacityTracked": false,
+      "shared": false
+    },
+    {
+      "id": "grooming",
+      "label": "Груминг",
+      "color": "#CBD5E1",
+      "capacityTracked": false,
+      "shared": false
+    },
+    {
+      "id": "design",
+      "label": "Дизайн",
+      "color": "#00E5A0",
+      "capacityTracked": true,
+      "shared": true
+    },
+    {
+      "id": "android",
+      "label": "Фронт Android",
+      "color": "#B98BFF",
+      "capacityTracked": true,
+      "shared": false
+    },
+    {
+      "id": "ios",
+      "label": "Фронт iOS",
+      "color": "#8B5CF6",
+      "capacityTracked": true,
+      "shared": true
+    },
+    {
+      "id": "web",
+      "label": "Фронт Web/Mob",
+      "color": "#6366F1",
+      "capacityTracked": true,
+      "shared": true
+    },
+    {
+      "id": "midl",
+      "label": "Мидл",
+      "color": "#FF7A45",
+      "capacityTracked": true,
+      "shared": false
+    },
+    {
+      "id": "analytics",
+      "label": "Аналитика",
+      "color": "#38BDF8",
+      "capacityTracked": true,
+      "shared": false
+    },
+    {
+      "id": "testing",
+      "label": "Тестирование",
+      "color": "#FFD23F",
+      "capacityTracked": true,
+      "shared": false
+    },
+    {
+      "id": "ek",
+      "label": "ЕК",
+      "color": "#FF3860",
+      "capacityTracked": false,
+      "shared": false
+    },
+    {
+      "id": "rollout",
+      "label": "Раскатка",
+      "color": "#2DD4FF",
+      "capacityTracked": true,
+      "shared": false
+    },
+    {
+      "id": "docs",
+      "label": "Документация/БЗ",
+      "color": "#F472B6",
+      "capacityTracked": false,
+      "shared": false
     }
-  }
+  ]
 }

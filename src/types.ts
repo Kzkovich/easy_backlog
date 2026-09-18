@@ -26,25 +26,12 @@ export interface Team {
   sprintBase: number; // номер спринта этой команды в календарном спринте с индексом 0
 }
 
-export type RoleId =
-  | 'business'
-  | 'grooming'
-  | 'design'
-  | 'android'
-  | 'ios'
-  | 'web'
-  | 'midl'
-  | 'analytics'
-  | 'testing'
-  | 'ek'
-  | 'rollout'
-  | 'docs';
+export type RoleId = string;
 
 export interface RoleDef {
   id: RoleId;
   label: string;
   color: string;
-  order: number;
   capacityTracked: boolean; // считаем ли загрузку по этой роли
   shared: boolean; // по умолчанию совмещённая роль, пока в составе нет людей
 }
@@ -126,13 +113,13 @@ export interface RiskThresholds {
 export interface Settings {
   thresholds: RiskThresholds;
   rolloutDeadlineOffsetFromFreeze: number; // спринтов до фриза, после которых раскатка не успевает
-  colors: Record<RoleId, string>;
 }
 
 export interface Plan {
   version: number;
   sprints: Sprint[];
   teams: Team[];
+  roles: RoleDef[];
   people: Person[];
   epics: Epic[];
   scenarios: Scenario[];

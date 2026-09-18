@@ -1,4 +1,5 @@
-import type { Epic, Plan, Team } from '../types';
+import type { Epic, Plan, RoleDef, Team } from '../types';
+import { DEFAULT_ROLES } from './roles';
 
 export function sprintNumber(team: Team, sprintIndex: number): number {
   return team.sprintBase + sprintIndex;
@@ -59,6 +60,18 @@ export function normalizePlan(raw: any): Plan {
   if (teams.length === 0) teams.push({ id: 'team-1', name: 'Команда', shortName: 'К1', sprintBase: 1 });
   const teamIds = teams.map((t) => t.id);
 
+  const rawRoles: any[] = Array.isArray(raw.roles) ? raw.roles : [];
+  const roles: RoleDef[] =
+    rawRoles.length > 0
+      ? rawRoles.map((r: any) => ({
+          id: String(r.id),
+          label: r.label ?? String(r.id),
+          color: r.color ?? '#999999',
+          capacityTracked: r.capacityTracked ?? true,
+          shared: r.shared ?? false,
+        }))
+      : DEFAULT_ROLES;
+
   const epics: Epic[] = (raw.epics ?? []).map((e: any) => {
     let ids: string[];
     if (Array.isArray(e.teams)) ids = e.teams;
@@ -73,6 +86,7 @@ export function normalizePlan(raw: any): Plan {
   return {
     ...raw,
     teams,
+    roles,
     epics,
     people: raw.people ?? [],
     scenarios: raw.scenarios ?? [],

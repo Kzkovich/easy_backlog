@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { Person, Plan, RoleId, Team, TeamId } from '../types';
-import { ROLE_DEFS } from '../lib/roles';
+import type { Person, Plan, RoleDef, RoleId, Team, TeamId } from '../types';
+import { nextRoleColor } from '../lib/roles';
 import { isSharedRole } from '../lib/load';
 import { sprintNumbersLabel } from '../lib/teams';
 
@@ -63,6 +63,39 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
       teams: p.teams.filter((t) => t.id !== team.id),
       epics: p.epics.map((e) => ({ ...e, teams: e.teams.filter((id) => id !== team.id) })),
       people: p.people.map((x) => ({ ...x, allocations: x.allocations.filter((a) => a.team !== team.id) })),
+    }));
+  }
+
+  // ——— роли ———
+
+  function mutateRole(id: string, fn: (r: RoleDef) => RoleDef) {
+    updatePlan((p) => ({ ...p, roles: p.roles.map((r) => (r.id === id ? fn(r) : r)) }));
+  }
+
+  function addRoleDef() {
+    const role: RoleDef = { id: uid('role'), label: 'Новая роль', color: nextRoleColor(plan.roles), capacityTracked: true, shared: false };
+    updatePlan((p) => ({ ...p, roles: [...p.roles, role] }));
+  }
+
+  function roleUsage(roleId: string) {
+    const epics = plan.epics.filter((e) => e.segments.some((s) => s.role === roleId)).length;
+    const people = plan.people.filter((p) => p.role === roleId).length;
+    return { epics, people };
+  }
+
+  function removeRoleDef(role: RoleDef) {
+    const usage = roleUsage(role.id);
+    if (usage.epics > 0 || usage.people > 0) {
+      window.alert(
+        `Роль «${role.label}» используется: колбасок — ${usage.epics}, людей — ${usage.people}.\n\nСначала уберите их (удалите колбаски этой роли и людей на ней), потом можно будет удалить роль.`
+      );
+      return;
+    }
+    if (!window.confirm(`Удалить роль «${role.label}»?`)) return;
+    updatePlan((p) => ({
+      ...p,
+      roles: p.roles.filter((r) => r.id !== role.id),
+      epics: p.epics.map((e) => (e.visibleRoles ? { ...e, visibleRoles: e.visibleRoles.filter((id) => id !== role.id) } : e)),
     }));
   }
 
@@ -172,13 +205,61 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
         </section>
 
         <section className="team-section">
+          <div className="section-title">Роли</div>
+          <p className="hint">
+            Роли, которые видны строками у каждой фичи. Переименовать, перекрасить или добавить можно здесь; удалить —
+            только когда роль нигде не используется (нет колбасок и людей).
+          </p>
+          <div className="team-table role-table">
+            <div className="team-table-head role-table-head">
+              <span />
+              <span>Название</span>
+              <span title="Учитывать эту роль в загрузке команд">Считать</span>
+              <span />
+            </div>
+            {plan.roles.map((role) => {
+              const usage = roleUsage(role.id);
+              const inUse = usage.epics > 0 || usage.people > 0;
+              return (
+                <div className="team-table-row role-table-row" key={role.id}>
+                  <input
+                    type="color"
+                    className="color-swatch"
+                    value={role.color}
+                    onChange={(e) => mutateRole(role.id, (r) => ({ ...r, color: e.target.value }))}
+                    title="Цвет роли"
+                  />
+                  <input type="text" value={role.label} onChange={(e) => mutateRole(role.id, (r) => ({ ...r, label: e.target.value }))} />
+                  <input
+                    type="checkbox"
+                    checked={role.capacityTracked}
+                    onChange={(e) => mutateRole(role.id, (r) => ({ ...r, capacityTracked: e.target.checked }))}
+                    title="Учитывать в загрузке команд"
+                  />
+                  <button
+                    className="icon-btn"
+                    title={inUse ? `Занята: колбасок ${usage.epics}, людей ${usage.people}` : 'Удалить роль'}
+                    onClick={() => removeRoleDef(role)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <button className="role-add-btn" onClick={addRoleDef}>
+            + роль
+          </button>
+        </section>
+
+        <section className="team-section">
           <div className="section-title">Люди и их доли</div>
           <p className="hint">
             Доля — какую часть времени человек отдаёт команде. Если у человека доли в нескольких командах, его загрузка
             считается суммарно по всем ним, и порог для него строже. Отпуска вычитаются из ёмкости спринта.
           </p>
 
-          {ROLE_DEFS.map((role) => {
+          {plan.roles.map((role) => {
             const people = plan.people.filter((p) => p.role === role.id);
             const shared = isSharedRole(plan, role.id);
             const caps = teams.map((t) => people.reduce((acc, p) => acc + shareOf(p, t.id), 0));

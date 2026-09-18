@@ -85,7 +85,7 @@ export default function App() {
       }
       try {
         const buf = await file.arrayBuffer();
-        const result = parsePlanWorkbook(buf, plan.sprints, plan.teams);
+        const result = parsePlanWorkbook(buf, plan.sprints, plan.teams, plan.roles);
         setPlan({ ...plan, epics: result.epics });
         setWarnings(result.warnings);
         setDirty(true);

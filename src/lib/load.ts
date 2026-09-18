@@ -1,5 +1,5 @@
 import type { Person, Plan, RoleDef, RoleId, TeamId } from '../types';
-import { ROLE_BY_ID, ROLE_DEFS } from './roles';
+import { findRole } from './roles';
 import { teamName } from './teams';
 
 // Модель загрузки.
@@ -76,7 +76,7 @@ function personShareIn(p: Person, scope: LoadScope): number {
 export function isSharedRole(plan: Plan, roleId: RoleId): boolean {
   if (plan.teams.length < 2) return false;
   const people = plan.people.filter((p) => p.role === roleId);
-  if (people.length === 0) return ROLE_BY_ID[roleId]?.shared ?? false;
+  if (people.length === 0) return findRole(plan.roles, roleId)?.shared ?? false;
   return people.some((p) => new Set(p.allocations.filter((a) => a.share > 0).map((a) => a.team)).size > 1);
 }
 
@@ -124,7 +124,7 @@ export function computeLoad(plan: Plan): LoadResult {
   const map = new Map<string, LoadCell>();
   const rows: LoadRow[] = [];
 
-  for (const role of ROLE_DEFS) {
+  for (const role of plan.roles) {
     const shared = isSharedRole(plan, role.id);
     const scopes: LoadScope[] = shared ? [SHARED_SCOPE] : plan.teams.map((t) => t.id);
 

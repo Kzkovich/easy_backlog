@@ -1,10 +1,10 @@
 import type { Segment } from '../types';
-import { roleColor } from '../lib/roles';
 import { contrastTextColor, hexToRgba } from '../lib/color';
 import type { LoadStatus } from '../lib/load';
 
 interface Props {
   segment: Segment;
+  roleColor: string;
   colWidth: number;
   from: number; // отображаемая позиция (может отличаться от segment.from во время перетаскивания)
   to: number;
@@ -21,6 +21,7 @@ const HANDLE_W = 7;
 
 export default function SegmentBar({
   segment,
+  roleColor,
   colWidth,
   from,
   to,
@@ -31,7 +32,7 @@ export default function SegmentBar({
   onLeftHandlePointerDown,
   onRightHandlePointerDown,
 }: Props) {
-  const bg = segment.color ?? roleColor(segment.role);
+  const bg = segment.color ?? roleColor;
   const left = from * colWidth + GAP;
   const width = (to - from + 1) * colWidth - GAP * 2;
   const noteCount = segment.notes ? Object.keys(segment.notes).length : 0;

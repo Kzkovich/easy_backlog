@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Epic, Plan, RoleId, Segment } from '../types';
 import type { RoleDef } from '../types';
-import { ROLE_DEFS } from '../lib/roles';
+import { roleColor as roleColorOf } from '../lib/roles';
 import { loadKey, scopesForEpicRole, type LoadResult, type LoadStatus } from '../lib/load';
 import { epicSpan, roleDurationSprints } from '../lib/duration';
 import { clampMoveDelta, clampResizeLeft, clampResizeRight, clampEpicMoveDelta, segmentOverlapsRoleInEpic } from '../lib/dnd';
@@ -53,10 +53,10 @@ function formatMoney(v: number | null): string {
   return (v / 1_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' млн ₽';
 }
 
-function activeRolesOf(epic: Epic): RoleDef[] {
-  const ids = epic.visibleRoles ?? ROLE_DEFS.map((r) => r.id);
+function activeRolesOf(epic: Epic, roles: RoleDef[]): RoleDef[] {
+  const ids = epic.visibleRoles ?? roles.map((r) => r.id);
   const set = new Set(ids);
-  return ROLE_DEFS.filter((r) => set.has(r.id));
+  return roles.filter((r) => set.has(r.id));
 }
 
 export default function Grid({
@@ -177,7 +177,7 @@ export default function Grid({
 
   function addRole(epicId: string, roleId: RoleId) {
     mutateEpic(epicId, (ep) => {
-      const current = ep.visibleRoles ?? ROLE_DEFS.map((r) => r.id);
+      const current = ep.visibleRoles ?? plan.roles.map((r) => r.id);
       if (current.includes(roleId)) return ep;
       return { ...ep, visibleRoles: [...current, roleId] };
     });
@@ -185,7 +185,7 @@ export default function Grid({
 
   function removeRole(epicId: string, roleId: RoleId) {
     mutateEpic(epicId, (ep) => {
-      const current = ep.visibleRoles ?? ROLE_DEFS.map((r) => r.id);
+      const current = ep.visibleRoles ?? plan.roles.map((r) => r.id);
       return { ...ep, visibleRoles: current.filter((id) => id !== roleId) };
     });
   }
@@ -461,8 +461,8 @@ export default function Grid({
 
           const showRollup = isCollapsed || mode === 'management';
           const showRoleRows = !isCollapsed && mode === 'detailed';
-          const activeRoles = activeRolesOf(epic);
-          const hiddenRoles = ROLE_DEFS.filter((r) => !activeRoles.includes(r));
+          const activeRoles = activeRolesOf(epic, plan.roles);
+          const hiddenRoles = plan.roles.filter((r) => !activeRoles.includes(r));
 
           const roleRows = showRoleRows
             ? activeRoles.map((role) => {
@@ -542,6 +542,7 @@ export default function Grid({
                         <SegmentBar
                           key={seg.id}
                           segment={seg}
+                          roleColor={roleColorOf(plan.roles, role.id)}
                           colWidth={colWidth}
                           from={disp.from}
                           to={disp.to}
@@ -598,8 +599,8 @@ export default function Grid({
         (() => {
           const epic = plan.epics.find((e) => e.id === roleMenu.epicId);
           if (!epic) return null;
-          const active = new Set(epic.visibleRoles ?? ROLE_DEFS.map((r) => r.id));
-          const hidden = ROLE_DEFS.filter((r) => !active.has(r.id));
+          const active = new Set(epic.visibleRoles ?? plan.roles.map((r) => r.id));
+          const hidden = plan.roles.filter((r) => !active.has(r.id));
           if (hidden.length === 0) return null;
           return (
             <div className="role-menu" style={{ left: roleMenu.x, top: roleMenu.y }}>
