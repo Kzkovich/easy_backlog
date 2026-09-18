@@ -427,20 +427,58 @@ export default function Grid({
     beginPointerSession(onMove, onUp, () => setReorderState(null));
   }
 
-  function startEnvelopeDrag(e: React.PointerEvent, epic: Epic) {
+  function envelopeTrack(e: React.PointerEvent): HTMLElement | null {
+    return (e.currentTarget as HTMLElement).closest('.epic-header-track') as HTMLElement | null;
+  }
+
+  function envelopeRaw(clientX: number, rect: DOMRect): number {
+    return Math.max(cutoffIndex, Math.min(maxIndex, cutoffIndex + Math.floor((clientX - rect.left) / colWidth)));
+  }
+
+  function startEnvelopeCreate(e: React.PointerEvent, epic: Epic) {
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    const track = (e.currentTarget as HTMLElement).closest('.epic-header-track') as HTMLElement | null;
-    const rect = track?.getBoundingClientRect();
-    if (!rect) return;
-    const sprintAt = (clientX: number) =>
-      Math.max(cutoffIndex, Math.min(maxIndex, cutoffIndex + Math.floor((clientX - rect.left) / colWidth)));
-    const anchor = sprintAt(e.clientX);
+    const track = envelopeTrack(e);
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    const at = (clientX: number) =>
+      Math.max(currentSprint, Math.min(maxIndex, envelopeRaw(clientX, rect)));
+    const anchor = at(e.clientX);
     setEnvelope((prev) => ({ ...prev, [epic.id]: { from: anchor, to: anchor } }));
     function onMove(ev: PointerEvent) {
-      const cur = sprintAt(ev.clientX);
+      const cur = at(ev.clientX);
       setEnvelope((prev) => ({ ...prev, [epic.id]: { from: Math.min(anchor, cur), to: Math.max(anchor, cur) } }));
+    }
+    beginPointerSession(onMove, () => undefined, () => undefined);
+  }
+
+  function startEnvelopeResizeFrom(e: React.PointerEvent, epic: Epic) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const track = envelopeTrack(e);
+    const env = envelope[epic.id];
+    if (!track || !env) return;
+    const rect = track.getBoundingClientRect();
+    function onMove(ev: PointerEvent) {
+      const from = Math.max(currentSprint, Math.min(env.to, envelopeRaw(ev.clientX, rect)));
+      setEnvelope((prev) => ({ ...prev, [epic.id]: { from, to: env.to } }));
+    }
+    beginPointerSession(onMove, () => undefined, () => undefined);
+  }
+
+  function startEnvelopeResizeTo(e: React.PointerEvent, epic: Epic) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const track = envelopeTrack(e);
+    const env = envelope[epic.id];
+    if (!track || !env) return;
+    const rect = track.getBoundingClientRect();
+    function onMove(ev: PointerEvent) {
+      const to = Math.max(env.from, envelopeRaw(ev.clientX, rect));
+      setEnvelope((prev) => ({ ...prev, [epic.id]: { from: env.from, to } }));
     }
     beginPointerSession(onMove, () => undefined, () => undefined);
   }
@@ -456,7 +494,9 @@ export default function Grid({
   function handleDistribute(epic: Epic, durations: Record<RoleId, number>) {
     const env = envelope[epic.id];
     if (!env) return;
-    const res = distributeEpic(plan, epic, env.from, env.to, durations);
+    const from = Math.max(currentSprint, env.from);
+    const to = Math.min(maxIndex, env.to);
+    const res = distributeEpic(plan, epic, from, to, durations);
     if (res.fits) {
       mutateEpic(epic.id, (ep) => ({
         ...ep,
@@ -465,16 +505,16 @@ export default function Grid({
       setDistributingEpicId(null);
       return;
     }
-    const probe = distributeEpic(plan, epic, env.from, Number.MAX_SAFE_INTEGER, durations);
-    const maxEnd = probe.segments.reduce((m, s) => Math.max(m, s.to), env.from - 1);
-    const overflowSprints = Math.max(1, maxEnd - env.to);
+    const probe = distributeEpic(plan, epic, from, Number.MAX_SAFE_INTEGER, durations);
+    const maxEnd = probe.segments.reduce((m, s) => Math.max(m, s.to), from - 1);
+    const overflowSprints = Math.max(1, maxEnd - to);
     setDistributingEpicId(null);
-    setOverflow({ epicId: epic.id, from: env.from, to: env.to, durations, overflow: overflowSprints });
+    setOverflow({ epicId: epic.id, from, to, durations, overflow: overflowSprints });
   }
 
   function handleExpand(epic: Epic) {
     if (!overflow) return;
-    const newTo = overflow.to + overflow.overflow;
+    const newTo = Math.min(maxIndex, overflow.to + overflow.overflow);
     const res = distributeEpic(plan, epic, overflow.from, newTo, overflow.durations);
     if (res.fits) {
       setEnvelope((prev) => ({ ...prev, [epic.id]: { from: overflow.from, to: newTo } }));
@@ -482,8 +522,12 @@ export default function Grid({
         ...ep,
         segments: [...ep.segments.filter((s) => s.from < currentSprint), ...res.segments],
       }));
+      setOverflow(null);
+      return;
     }
-    setOverflow(null);
+    const probe = distributeEpic(plan, epic, overflow.from, Number.MAX_SAFE_INTEGER, overflow.durations);
+    const maxEnd = probe.segments.reduce((m, s) => Math.max(m, s.to), overflow.from - 1);
+    setOverflow({ epicId: epic.id, from: overflow.from, to: newTo, durations: overflow.durations, overflow: Math.max(1, maxEnd - newTo) });
   }
 
   function availableSprint(epic: Epic, role: RoleDef): number | null {
@@ -740,7 +784,7 @@ export default function Grid({
                   )}
                 </div>
                 <div className="envelope-controls" onPointerDown={(e) => e.stopPropagation()}>
-                  {env && (
+                  {env ? (
                     <>
                       <button
                         type="button"
@@ -753,6 +797,24 @@ export default function Grid({
                       <button
                         type="button"
                         className="envelope-handle"
+                        onPointerDown={(e) => startEnvelopeResizeFrom(e, epic)}
+                        title="Левая граница диапазона (from)"
+                        aria-label={`Левая граница серого диапазона фичи «${epic.title}»`}
+                      >
+                        ◂
+                      </button>
+                      <button
+                        type="button"
+                        className="envelope-handle"
+                        onPointerDown={(e) => startEnvelopeResizeTo(e, epic)}
+                        title="Правая граница диапазона (to)"
+                        aria-label={`Правая граница серого диапазона фичи «${epic.title}»`}
+                      >
+                        ▸
+                      </button>
+                      <button
+                        type="button"
+                        className="envelope-handle envelope-clear"
                         onClick={() => clearEnvelope(epic.id)}
                         title="Сбросить серый диапазон"
                         aria-label={`Сбросить серый диапазон фичи «${epic.title}»`}
@@ -760,16 +822,17 @@ export default function Grid({
                         ✕
                       </button>
                     </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="envelope-handle"
+                      onPointerDown={(e) => startEnvelopeCreate(e, epic)}
+                      title="Задать серый диапазон распределения"
+                      aria-label={`Задать серый диапазон распределения фичи «${epic.title}»`}
+                    >
+                      ⇔
+                    </button>
                   )}
-                  <button
-                    type="button"
-                    className="envelope-handle"
-                    onPointerDown={(e) => startEnvelopeDrag(e, epic)}
-                    title="Задать/изменить серый диапазон распределения"
-                    aria-label={`Задать серый диапазон распределения фичи «${epic.title}»`}
-                  >
-                    ⇔
-                  </button>
                 </div>
               </div>
 
@@ -994,6 +1057,7 @@ export default function Grid({
           return (
             <OverflowDialog
               overflow={overflow}
+              canExpand={overflow.to < maxIndex}
               onExpand={() => handleExpand(epic)}
               onCancel={() => setOverflow(null)}
             />
@@ -1078,10 +1142,12 @@ function DistributeModal({
 
 function OverflowDialog({
   overflow,
+  canExpand,
   onExpand,
   onCancel,
 }: {
   overflow: { from: number; to: number; overflow: number };
+  canExpand: boolean;
   onExpand: () => void;
   onCancel: () => void;
 }) {
@@ -1090,16 +1156,24 @@ function OverflowDialog({
       <div className="distribute-modal" role="dialog" aria-modal="true" aria-label="Диапазон не помещается">
         <div className="distribute-modal-title">Не помещается</div>
         <p className="distribute-modal-text">
-          Роли не умещаются в диапазон {overflow.from}–{overflow.to}. Расширить диапазон на {overflow.overflow}{' '}
-          {sprintWord(overflow.overflow)}?
+          {canExpand ? (
+            <>
+              Роли не умещаются в диапазон {overflow.from}–{overflow.to}. Расширить диапазон на {overflow.overflow}{' '}
+              {sprintWord(overflow.overflow)}?
+            </>
+          ) : (
+            <>Роли не умещаются даже в диапазон до {overflow.to}. Сократите длительности ролей или уменьшите окно.</>
+          )}
         </p>
         <div className="distribute-modal-actions">
           <button className="btn small" onClick={onCancel}>
             Отменить
           </button>
-          <button className="btn primary small" onClick={onExpand}>
-            Расширить
-          </button>
+          {canExpand && (
+            <button className="btn primary small" onClick={onExpand}>
+              Расширить
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -1316,6 +1316,10 @@ body {
   border-color: var(--accent3);
 }
 
+.envelope-handle.envelope-clear {
+  cursor: pointer;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
