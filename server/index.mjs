@@ -169,6 +169,7 @@ function createDemoPlan(template) {
   const start = Math.min(currentSprintIndex(sprints), Math.max(0, sprints.length - 7));
   const role = (index) => roleIds[index % Math.max(1, roleIds.length)] || 'dev';
   const segment = (id, roleId, from, to, label) => ({ id, role: roleId, from, to, label, color: null, flag: null });
+  const planned = (id, roleId, from, to, label) => ({ id, role: roleId, from, to, label });
   const epic = (id, title, offset, labels) => ({
     id,
     title,
@@ -186,6 +187,10 @@ function createDemoPlan(template) {
       segment(`${id}-discovery`, role(0), start + offset, start + offset + 1, labels[0]),
       segment(`${id}-build`, role(1), start + offset + 1, start + offset + 3, labels[1]),
       segment(`${id}-qa`, role(2), start + offset + 3, start + offset + 4, labels[2]),
+    ],
+    plannedSegments: [
+      planned(`${id}-planned-discovery`, role(0), start + offset, start + offset + 2, `План · ${labels[0]}`),
+      planned(`${id}-planned-build`, role(1), start + offset + 2, start + offset + 4, `План · ${labels[1]}`),
     ],
   });
 

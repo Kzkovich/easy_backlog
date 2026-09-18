@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-export type ZoomLevel = 'compact' | 'normal' | 'large';
+export type ZoomLevel = 'compact' | 'normal';
 export type Theme = 'light' | 'ceramic' | 'dark' | 'auto';
 export type BgPattern = 'dots' | 'squares';
 
@@ -20,13 +20,14 @@ interface SegProps<T extends string> {
   value: T;
   options: [T, string][];
   onChange: (v: T) => void;
+  label: string;
 }
 
-function Seg<T extends string>({ value, options, onChange }: SegProps<T>) {
+function Seg<T extends string>({ value, options, onChange, label }: SegProps<T>) {
   return (
-    <div className="zoom-group">
+    <div className="zoom-group" role="group" aria-label={label}>
       {options.map(([v, label]) => (
-        <button key={v} className={value === v ? 'active' : ''} onClick={() => onChange(v)}>
+        <button key={v} className={value === v ? 'active' : ''} aria-pressed={value === v} onClick={() => onChange(v)}>
           {label}
         </button>
       ))}
@@ -54,7 +55,13 @@ export default function SettingsMenu({ zoom, onZoom, hidePast, onHidePast, theme
 
   return (
     <div className="settings-menu" ref={ref}>
-      <button className={`btn icon${open ? ' active' : ''}`} onClick={() => setOpen((v) => !v)} title="Вид и настройки">
+      <button
+        className={`btn icon${open ? ' active' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        title="Вид и настройки"
+        aria-label="Вид и настройки"
+        aria-expanded={open}
+      >
         ⚙
       </button>
       {open && (
@@ -62,18 +69,19 @@ export default function SettingsMenu({ zoom, onZoom, hidePast, onHidePast, theme
           <div className="settings-row">
             <span className="settings-label">Масштаб</span>
             <Seg
+              label="Масштаб"
               value={zoom}
               onChange={onZoom}
               options={[
-                ['compact', 'мелко'],
-                ['normal', 'обычно'],
-                ['large', 'крупно'],
+                ['compact', 'Компактно'],
+                ['normal', 'Стандартно'],
               ]}
             />
           </div>
           <div className="settings-row">
             <span className="settings-label">Прошедшие кварталы</span>
             <Seg
+              label="Прошедшие кварталы"
               value={hidePast ? 'hide' : 'show'}
               onChange={(v) => onHidePast(v === 'hide')}
               options={[
@@ -85,6 +93,7 @@ export default function SettingsMenu({ zoom, onZoom, hidePast, onHidePast, theme
           <div className="settings-row">
             <span className="settings-label">Тема</span>
             <Seg
+              label="Тема"
               value={theme}
               onChange={onTheme}
               options={[
@@ -96,8 +105,9 @@ export default function SettingsMenu({ zoom, onZoom, hidePast, onHidePast, theme
             />
           </div>
           <div className="settings-row">
-            <span className="settings-label">Фон сетки</span>
+            <span className="settings-label">Подложка</span>
             <Seg
+              label="Подложка"
               value={bgPattern}
               onChange={onBgPattern}
               options={[

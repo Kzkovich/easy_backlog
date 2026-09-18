@@ -24,7 +24,6 @@ export default function EpicFormPanel({ epic, teams, defaultTeamIds, onSave, onD
   const [effectYear, setEffectYear] = useState(epic?.effectYear?.toString() ?? '');
   const [effect2026, setEffect2026] = useState(epic?.effect2026?.toString() ?? '');
   const [effectKind, setEffectKind] = useState<EffectKind>(epic?.effectKind ?? null);
-  const [needsKb, setNeedsKb] = useState(epic?.needsKb ?? false);
   const [notes, setNotes] = useState(epic?.notes ?? '');
 
   const isNew = epic === null;
@@ -41,19 +40,20 @@ export default function EpicFormPanel({ epic, teams, defaultTeamIds, onSave, onD
       effectYear: effectYear.trim() ? Number(effectYear) : null,
       effect2026: effect2026.trim() ? Number(effect2026) : null,
       effectKind,
-      needsKb,
+      needsKb: epic?.needsKb ?? false,
       notes,
       links: epic?.links ?? [],
       segments: epic?.segments ?? [],
+      plannedSegments: epic?.plannedSegments ?? [],
     };
     onSave(result);
   }
 
   return (
-    <div className="side-panel">
+    <div className="side-panel" role="dialog" aria-modal="false" aria-labelledby="epic-panel-title">
       <div className="side-panel-header">
-        <h2>{isNew ? 'Новая фича' : 'Фича'}</h2>
-        <button className="btn small" onClick={onClose}>
+        <h2 id="epic-panel-title">{isNew ? 'Новая фича' : 'Фича'}</h2>
+        <button className="btn small" onClick={onClose} aria-label="Закрыть редактор фичи">
           ✕
         </button>
       </div>
@@ -113,10 +113,6 @@ export default function EpicFormPanel({ epic, teams, defaultTeamIds, onSave, onD
             ))}
           </select>
         </label>
-        <label className="checkbox-row">
-          <input type="checkbox" checked={needsKb} onChange={(e) => setNeedsKb(e.target.checked)} />
-          Нужна статья в Базу Знаний
-        </label>
         <label>
           Заметки
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
@@ -124,8 +120,8 @@ export default function EpicFormPanel({ epic, teams, defaultTeamIds, onSave, onD
 
         {!isNew && (
           <p className="hint">
-            Колбаски добавляются двойным кликом по пустой ячейке в строке роли прямо в сетке, двигаются и
-            растягиваются мышью.
+            Двойной клик по пустой строке добавляет колбаску. Клик по колбаске открывает её настройки;
+            перетаскивание и края меняют срок.
           </p>
         )}
       </div>

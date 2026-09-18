@@ -1,4 +1,4 @@
-import type { Epic, Plan, RoleDef, Team } from '../types';
+import type { Epic, PlannedSegment, Plan, RoleDef, Segment, Team } from '../types';
 import { DEFAULT_ROLES } from './roles';
 
 export function sprintNumber(team: Team, sprintIndex: number): number {
@@ -42,6 +42,30 @@ function legacySprintBase(raw: any, teamId: string): number {
 // Раньше шапка показывала «JHD / AMCLCT» — при миграции сохраняем этот порядок.
 const LEGACY_HEADER_ORDER = ['jhd', 'amclct'];
 
+function normalizedRange(raw: any, maxIndex: number): { from: number; to: number } | null {
+  if (maxIndex < 0) return null;
+  const rawFrom = Number(raw?.from);
+  const rawTo = Number(raw?.to);
+  const hasFrom = Number.isFinite(rawFrom);
+  const hasTo = Number.isFinite(rawTo);
+  if (!hasFrom && !hasTo) return null;
+  let from = Math.trunc(hasFrom ? rawFrom : rawTo);
+  let to = Math.trunc(hasTo ? rawTo : rawFrom);
+  if (from > to) [from, to] = [to, from];
+  from = Math.max(0, Math.min(maxIndex, from));
+  to = Math.max(0, Math.min(maxIndex, to));
+  return { from, to };
+}
+
+function uniqueId(candidate: unknown, fallback: string, used: Set<string>): string {
+  const base = String(candidate || fallback);
+  let id = base;
+  let suffix = 2;
+  while (used.has(id)) id = `${base}-${suffix++}`;
+  used.add(id);
+  return id;
+}
+
 export function normalizePlan(raw: any): Plan {
   const rawTeams: any[] = raw.teams ?? [];
   const isLegacy = rawTeams.length > 0 && rawTeams.every((t) => typeof t.sprintBase !== 'number');
@@ -72,14 +96,49 @@ export function normalizePlan(raw: any): Plan {
         }))
       : DEFAULT_ROLES;
 
-  const epics: Epic[] = (raw.epics ?? []).map((e: any) => {
+  const maxSprintIndex = Math.max(-1, ...(Array.isArray(raw.sprints) ? raw.sprints.map((s: any) => Number(s?.index)).filter(Number.isFinite) : []));
+  const epics: Epic[] = (Array.isArray(raw.epics) ? raw.epics : []).map((e: any, epicIndex: number) => {
     let ids: string[];
     if (Array.isArray(e.teams)) ids = e.teams;
     else if (e.team === 'BOTH') ids = teamIds;
     else if (e.team) ids = [e.team];
     else ids = [];
     const { team: _legacy, teams: _t, ...rest } = e;
-    return { id: rest.id, title: rest.title, teams: ids.filter((id) => teamIds.includes(id)), ...rest };
+    const epicId = String(rest.id || `epic-${epicIndex + 1}`);
+    const usedIds = new Set<string>();
+    const segments: Segment[] = (Array.isArray(rest.segments) ? rest.segments : []).flatMap((segment: any, index: number) => {
+      const range = normalizedRange(segment, maxSprintIndex);
+      if (!range || segment?.role == null) return [];
+      return [{
+        ...segment,
+        id: uniqueId(segment.id, `${epicId}-segment-${index + 1}`, usedIds),
+        role: String(segment.role),
+        ...range,
+        label: typeof segment.label === 'string' ? segment.label : '',
+        color: typeof segment.color === 'string' ? segment.color : null,
+        flag: segment.flag ?? null,
+      }];
+    });
+    const plannedSegments: PlannedSegment[] = (Array.isArray(rest.plannedSegments) ? rest.plannedSegments : []).flatMap(
+      (segment: any, index: number) => {
+        const range = normalizedRange(segment, maxSprintIndex);
+        if (!range || segment?.role == null) return [];
+        return [{
+          id: uniqueId(segment.id, `${epicId}-planned-${index + 1}`, usedIds),
+          role: String(segment.role),
+          ...range,
+          label: typeof segment.label === 'string' ? segment.label : '',
+        }];
+      }
+    );
+    return {
+      ...rest,
+      id: epicId,
+      title: rest.title ?? epicId,
+      teams: ids.filter((id) => teamIds.includes(id)),
+      segments,
+      plannedSegments,
+    };
   });
 
   const thresholds = raw.settings?.thresholds ?? {};

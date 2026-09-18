@@ -11,11 +11,16 @@ import { computeLoad } from './lib/load';
 import { normalizePlan } from './lib/teams';
 import { currentQuarterCutoffIndex, currentSprintIndex } from './lib/calendar';
 
-const ZOOM_WIDTH: Record<ZoomLevel, number> = { compact: 64, normal: 92, large: 130 };
+const ZOOM_WIDTH: Record<ZoomLevel, number> = { compact: 64, normal: 92 };
 type ViewMode = 'detailed' | 'management';
 
 function readLocal<T extends string>(key: string, fallback: T): T {
   return (localStorage.getItem(key) as T) || fallback;
+}
+
+function readZoom(): ZoomLevel {
+  const stored = localStorage.getItem('kolbaski-zoom');
+  return stored === 'compact' ? 'compact' : 'normal';
 }
 
 export default function App() {
@@ -25,7 +30,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [zoom, setZoom] = useState<ZoomLevel>(() => readLocal('kolbaski-zoom', 'normal'));
+  const [zoom, setZoom] = useState<ZoomLevel>(readZoom);
   const [mode, setMode] = useState<ViewMode>('detailed');
   const [teamFilter, setTeamFilter] = useState<string>('ALL');
   const [hidePast, setHidePast] = useState(() => localStorage.getItem('kolbaski-hide-past') !== '0');
@@ -37,6 +42,7 @@ export default function App() {
   const [dirty, setDirty] = useState(false);
   const [panelTarget, setPanelTarget] = useState<string | 'new' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const teamsButtonRef = useRef<HTMLButtonElement>(null);
   const gridScrollRef = useRef<HTMLDivElement>(null);
   const loadScrollRef = useRef<HTMLDivElement>(null);
 
@@ -192,7 +198,10 @@ export default function App() {
 
   return (
     <div className="app">
-      <div className="toolbar">
+      <a className="skip-link" href="#planner-main">
+        Перейти к плану
+      </a>
+      <header className="toolbar" role="toolbar" aria-label="Основные действия планировщика">
         <h1>Колбаски</h1>
         <button className="btn" onClick={() => setPanelTarget('new')} disabled={!plan}>
           + Фича
@@ -200,16 +209,26 @@ export default function App() {
 
         <div className="toolbar-sep" />
 
-        <div className="zoom-group">
+        <div className="zoom-group" role="group" aria-label="Представление плана">
           {(['detailed', 'management'] as ViewMode[]).map((m) => (
-            <button key={m} className={mode === m ? 'active' : ''} onClick={() => setMode(m)}>
-              {m === 'detailed' ? 'Детально' : 'Для менеджмента'}
+            <button
+              key={m}
+              className={mode === m ? 'active' : ''}
+              aria-pressed={mode === m}
+              onClick={() => setMode(m)}
+            >
+              {m === 'detailed' ? 'По ролям' : 'Сводно'}
             </button>
           ))}
         </div>
 
         {plan && plan.teams.length > 1 && (
-          <select className="team-filter" value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)}>
+          <select
+            className="team-filter"
+            value={teamFilter}
+            aria-label="Фильтр по команде"
+            onChange={(e) => setTeamFilter(e.target.value)}
+          >
             <option value="ALL">Все команды</option>
             {plan.teams.map((t) => (
               <option key={t.id} value={t.id}>
@@ -221,7 +240,7 @@ export default function App() {
 
         <div className="spacer" />
 
-        {error && <span className="status-line error">{error}</span>}
+        {error && <span className="status-line error" role="status">{error}</span>}
         <button
           className={`btn${dirty ? ' primary' : ' saved'}`}
           onClick={handleSave}
@@ -230,8 +249,15 @@ export default function App() {
         >
           {saving ? 'Сохранение…' : dirty ? 'Сохранить' : '✓ Сохранено'}
         </button>
-        <button className={`btn${showTeams ? ' active' : ''}`} onClick={() => setShowTeams((v) => !v)} disabled={!plan}>
-          Состав команд
+        <button
+          ref={teamsButtonRef}
+          className={`btn${showTeams ? ' active' : ''}`}
+          onClick={() => setShowTeams((v) => !v)}
+          disabled={!plan}
+          aria-expanded={showTeams}
+          aria-controls="teams-panel"
+        >
+          Команды и ресурсы
         </button>
         <SettingsMenu
           zoom={zoom}
@@ -252,21 +278,21 @@ export default function App() {
           </button>
         </div>
         <input ref={fileInputRef} type="file" accept=".xlsx,.xlsm" style={{ display: 'none' }} onChange={handleFileChange} />
-      </div>
+      </header>
 
       {warnings.length > 0 && (
-        <div className="warnings-panel">
+        <aside className="warnings-panel" aria-label="Предупреждения импорта">
           <strong>Предупреждения импорта ({warnings.length}):</strong>
           <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
             {warnings.map((w, i) => (
               <li key={i}>{w}</li>
             ))}
           </ul>
-        </div>
+        </aside>
       )}
 
-      <div className="main-area">
-        <div className="center-column">
+      <main id="planner-main" className="main-area" tabIndex={-1}>
+        <section className="center-column" aria-label="Рабочая область плана">
           {loading && <div className="empty-state">Загрузка…</div>}
           {!loading && error && !plan && <div className="empty-state">{error}</div>}
           {!loading && plan && plan.epics.length === 0 && (
@@ -305,10 +331,9 @@ export default function App() {
               scrollRef={loadScrollRef}
               highlight={highlight}
               onHighlight={setHighlight}
-              onOpenTeams={() => setShowTeams(true)}
             />
           )}
-        </div>
+        </section>
 
         {showTeams && plan && (
           <TeamsPanel
@@ -316,7 +341,10 @@ export default function App() {
             updatePlan={updatePlan}
             cutoffIndex={cutoffIndex}
             currentSprint={currentSprint}
-            onClose={() => setShowTeams(false)}
+            onClose={() => {
+              setShowTeams(false);
+              requestAnimationFrame(() => teamsButtonRef.current?.focus());
+            }}
           />
         )}
 
@@ -331,7 +359,7 @@ export default function App() {
             onClose={() => setPanelTarget(null)}
           />
         )}
-      </div>
+      </main>
     </div>
   );
 }

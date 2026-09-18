@@ -1,9 +1,11 @@
+import type { CSSProperties } from 'react';
 import type { Segment } from '../types';
 import { contrastTextColor, hexToRgba } from '../lib/color';
 import type { LoadStatus } from '../lib/load';
 
 interface Props {
   segment: Segment;
+  roleLabel: string;
   roleColor: string;
   colWidth: number;
   from: number; // отображаемая позиция (может отличаться от segment.from во время перетаскивания)
@@ -11,9 +13,11 @@ interface Props {
   status: LoadStatus | null;
   spotlight: boolean;
   isDragging: boolean;
+  dragOffsetX: number | null;
   onBodyPointerDown: (e: React.PointerEvent) => void;
   onLeftHandlePointerDown: (e: React.PointerEvent) => void;
   onRightHandlePointerDown: (e: React.PointerEvent) => void;
+  onEdit: (x: number, y: number) => void;
 }
 
 const GAP = 3;
@@ -21,6 +25,7 @@ const HANDLE_W = 7;
 
 export default function SegmentBar({
   segment,
+  roleLabel,
   roleColor,
   colWidth,
   from,
@@ -28,9 +33,11 @@ export default function SegmentBar({
   status,
   spotlight,
   isDragging,
+  dragOffsetX,
   onBodyPointerDown,
   onLeftHandlePointerDown,
   onRightHandlePointerDown,
+  onEdit,
 }: Props) {
   const bg = segment.color ?? roleColor;
   const left = from * colWidth + GAP;
@@ -49,11 +56,22 @@ export default function SegmentBar({
       style={{
         left,
         width,
-        background: bg,
+        ['--segment-color' as string]: bg,
+        ['--segment-glow' as string]: hexToRgba(bg, 0.42),
         color: contrastTextColor(bg),
-        boxShadow: `0 0 calc(9px * var(--glow-strength)) ${hexToRgba(bg, 0.65)}, 0 1px 2px rgba(0,0,0,0.15)`,
-      }}
+        transform: dragOffsetX === null ? undefined : `translateX(${dragOffsetX}px) translateY(-3px) scale(1.01)`,
+        transition: dragOffsetX === null ? undefined : 'none',
+      } as CSSProperties}
       title={segment.label || undefined}
+      role="button"
+      tabIndex={0}
+      aria-label={`Колбаска «${segment.label || 'без названия'}», роль ${roleLabel}. Enter — открыть настройки`}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        const rect = event.currentTarget.getBoundingClientRect();
+        onEdit(rect.left + rect.width / 2, rect.bottom + 6);
+      }}
       onDoubleClick={(e) => e.stopPropagation()}
     >
       <div

@@ -26,6 +26,19 @@ function fmtCap(n: number): string {
   return String(Math.round(n * 100) / 100).replace('.', ',');
 }
 
+function capacityWord(n: number): string {
+  if (!Number.isInteger(n)) return 'ставки';
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'ставка';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'ставки';
+  return 'ставок';
+}
+
+function capacityLabel(n: number): string {
+  return `${fmtCap(n)} ${capacityWord(n)}`;
+}
+
 export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprint, onClose }: Props) {
   const [absenceFor, setAbsenceFor] = useState<string | null>(null);
   const teams = plan.teams;
@@ -75,6 +88,16 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
   function addRoleDef() {
     const role: RoleDef = { id: uid('role'), label: 'Новая роль', color: nextRoleColor(plan.roles), capacityTracked: true, shared: false };
     updatePlan((p) => ({ ...p, roles: [...p.roles, role] }));
+  }
+
+  function moveRole(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= plan.roles.length) return;
+    updatePlan((p) => {
+      const next = [...p.roles];
+      [next[index], next[target]] = [next[target], next[index]];
+      return { ...p, roles: next };
+    });
   }
 
   function roleUsage(roleId: string) {
@@ -142,10 +165,10 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
   const absenceSprints = plan.sprints.slice(cutoffIndex, cutoffIndex + 26);
 
   return (
-    <div className="side-panel wide">
+    <div id="teams-panel" className="side-panel wide" role="dialog" aria-modal="false" aria-labelledby="teams-panel-title">
       <div className="side-panel-header">
-        <h2>Состав команд</h2>
-        <button className="btn small" onClick={onClose}>
+        <h2 id="teams-panel-title">Команды и ресурсы</h2>
+        <button className="btn small" onClick={onClose} aria-label="Закрыть настройки команд и ресурсов">
           ✕
         </button>
       </div>
@@ -165,6 +188,7 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
                 <button
                   className="icon-btn"
                   title="Выше — номер этой команды будет раньше в шапке"
+                  aria-label={`Переместить команду «${team.name}» выше`}
                   disabled={i === 0}
                   onClick={() => moveTeamUp(i)}
                 >
@@ -173,16 +197,20 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
                 <input
                   type="text"
                   value={team.name}
+                  autoFocus={i === 0}
+                  aria-label={`Название команды ${i + 1}`}
                   onChange={(e) => mutateTeam(team.id, (t) => ({ ...t, name: e.target.value }))}
                 />
                 <input
                   type="text"
                   value={team.shortName}
+                  aria-label={`Краткое название команды «${team.name}»`}
                   onChange={(e) => mutateTeam(team.id, (t) => ({ ...t, shortName: e.target.value }))}
                 />
                 <input
                   type="number"
                   value={team.sprintBase + refSprint}
+                  aria-label={`Номер текущего спринта команды «${team.name}»`}
                   onChange={(e) => {
                     const v = Number(e.target.value);
                     if (Number.isFinite(v)) mutateTeam(team.id, (t) => ({ ...t, sprintBase: v - refSprint }));
@@ -191,6 +219,7 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
                 <button
                   className="icon-btn"
                   title={teams.length <= 1 ? 'Должна остаться хотя бы одна команда' : 'Удалить команду'}
+                  aria-label={`Удалить команду «${team.name}»`}
                   disabled={teams.length <= 1}
                   onClick={() => removeTeam(team)}
                 >
@@ -207,38 +236,69 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
         <section className="team-section">
           <div className="section-title">Роли</div>
           <p className="hint">
-            Роли, которые видны строками у каждой фичи. Переименовать, перекрасить или добавить можно здесь; удалить —
-            только когда роль нигде не используется (нет колбасок и людей).
+            Порядок отсюда используют все фичи без собственной сортировки. Роли можно переименовать, перекрасить или
+            добавить; удалить — только когда роль нигде не используется (нет колбасок и людей).
           </p>
           <div className="team-table role-table">
             <div className="team-table-head role-table-head">
+              <span>Порядок</span>
               <span />
               <span>Название</span>
               <span title="Учитывать эту роль в загрузке команд">Считать</span>
               <span />
             </div>
-            {plan.roles.map((role) => {
+            {plan.roles.map((role, roleIndex) => {
               const usage = roleUsage(role.id);
               const inUse = usage.epics > 0 || usage.people > 0;
               return (
                 <div className="team-table-row role-table-row" key={role.id}>
+                  <span className="global-role-order-controls">
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      disabled={roleIndex === 0}
+                      aria-label={`Переместить роль «${role.label}» выше глобально`}
+                      title="Выше во всех фичах без собственного порядка"
+                      onClick={() => moveRole(roleIndex, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      disabled={roleIndex === plan.roles.length - 1}
+                      aria-label={`Переместить роль «${role.label}» ниже глобально`}
+                      title="Ниже во всех фичах без собственного порядка"
+                      onClick={() => moveRole(roleIndex, 1)}
+                    >
+                      ↓
+                    </button>
+                  </span>
                   <input
                     type="color"
                     className="color-swatch"
                     value={role.color}
                     onChange={(e) => mutateRole(role.id, (r) => ({ ...r, color: e.target.value }))}
                     title="Цвет роли"
+                    aria-label={`Цвет роли «${role.label}»`}
                   />
-                  <input type="text" value={role.label} onChange={(e) => mutateRole(role.id, (r) => ({ ...r, label: e.target.value }))} />
+                  <input
+                    type="text"
+                    value={role.label}
+                    aria-label="Название роли"
+                    onChange={(e) => mutateRole(role.id, (r) => ({ ...r, label: e.target.value }))}
+                  />
                   <input
                     type="checkbox"
                     checked={role.capacityTracked}
                     onChange={(e) => mutateRole(role.id, (r) => ({ ...r, capacityTracked: e.target.checked }))}
                     title="Учитывать в загрузке команд"
+                    aria-label={`Учитывать роль «${role.label}» в загрузке команд`}
                   />
                   <button
                     className="icon-btn"
                     title={inUse ? `Занята: колбасок ${usage.epics}, людей ${usage.people}` : 'Удалить роль'}
+                    aria-label={`Удалить роль «${role.label}»`}
                     onClick={() => removeRoleDef(role)}
                   >
                     ✕
@@ -271,10 +331,10 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
                   {role.label}
                   <span className="team-role-cap">
                     {people.length === 0
-                      ? 'никого'
+                      ? 'нет ставок'
                       : shared
-                        ? `общий пул ${fmtCap(total)} чел.`
-                        : teams.map((t, i) => `${t.shortName} ${fmtCap(caps[i])}`).join(' · ')}
+                        ? `общий пул ${capacityLabel(total)}`
+                        : teams.map((t, i) => `${t.shortName} ${capacityLabel(caps[i])}`).join(' · ')}
                   </span>
                 </div>
 
@@ -295,6 +355,7 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
                       <input
                         type="text"
                         value={person.name}
+                        aria-label={`Имя ресурса роли «${role.label}»`}
                         onChange={(e) => mutatePerson(person.id, (p) => ({ ...p, name: e.target.value }))}
                       />
                       {teams.map((team) => {
@@ -304,6 +365,7 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
                             key={team.id}
                             className={`share-select${v === 0 ? ' zero' : ''}`}
                             value={v}
+                            aria-label={`Доля ${person.name || 'ресурса'} в команде «${team.name}»`}
                             onChange={(e) => setShare(person, team.id, Number(e.target.value))}
                             title={team.name}
                           >
@@ -318,11 +380,17 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprin
                       <button
                         className={`icon-btn${absenceFor === person.id ? ' active' : ''}`}
                         title="Отпуска и отсутствия"
+                        aria-label={`Отпуска и отсутствия: ${person.name || 'ресурс'}`}
                         onClick={() => setAbsenceFor(absenceFor === person.id ? null : person.id)}
                       >
                         отп{person.absences?.length ? ` ${person.absences.length}` : ''}
                       </button>
-                      <button className="icon-btn" title="Убрать из состава" onClick={() => removePerson(person)}>
+                      <button
+                        className="icon-btn"
+                        title="Убрать из состава"
+                        aria-label={`Убрать ${person.name || 'ресурс'} из состава`}
+                        onClick={() => removePerson(person)}
+                      >
                         ✕
                       </button>
                     </div>

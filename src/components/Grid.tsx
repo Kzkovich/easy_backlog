@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Epic, Plan, RoleId, Segment } from '../types';
+import type { Epic, EpicStatus, Plan, RoleId, Segment } from '../types';
 import type { RoleDef } from '../types';
 import { roleColor as roleColorOf } from '../lib/roles';
 import { loadKey, scopesForEpicRole, type LoadResult, type LoadStatus } from '../lib/load';
@@ -8,7 +8,7 @@ import { clampMoveDelta, clampResizeLeft, clampResizeRight, clampEpicMoveDelta, 
 import { sprintNumbersLabel, teamsBadge } from '../lib/teams';
 import type { LoadHighlight } from './LoadPanel';
 import SegmentBar from './SegmentBar';
-import TextPopover from './TextPopover';
+import SegmentEditorPopover from './SegmentEditorPopover';
 
 interface Props {
   plan: Plan;
@@ -31,16 +31,14 @@ type LivePreview =
   | { type: 'epic'; epicId: string; deltaSprints: number }
   | null;
 
-type PopoverState =
-  | { kind: 'label'; epicId: string; segmentId: string; x: number; y: number }
-  | { kind: 'note'; epicId: string; segmentId: string; sprintIndex: number; x: number; y: number }
-  | null;
+type PopoverState = { epicId: string; segmentId: string; sprintIndex: number; x: number; y: number } | null;
 
 type ReorderState = { draggedId: string; targetId: string } | null;
 type RoleMenuState = { epicId: string; x: number; y: number } | null;
+type EpicDragMotion = { epicId: string; offsetPx: number } | null;
+type PointerSession = { cleanup: () => void; cancel: () => void };
 
 const CLICK_MOVE_THRESHOLD = 4;
-const DOUBLE_CLICK_WINDOW = 300;
 const LABEL_WIDTH = 260; // держим в синхроне с --label-width в styles.css
 
 function formatDateShort(iso: string): string {
@@ -53,10 +51,36 @@ function formatMoney(v: number | null): string {
   return (v / 1_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' млн ₽';
 }
 
+const STATUS_LABELS: Record<EpicStatus, string> = {
+  бэклог: 'В бэклоге',
+  дискавери: 'Исследование',
+  разработка: 'В разработке',
+  тест: 'Тестирование',
+  раскатка: 'Запуск',
+  готово: 'Готово',
+  перенесён: 'Перенесено',
+};
+
+function sprintWord(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return 'спринт';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'спринта';
+  return 'спринтов';
+}
+
+function effectSummary(epic: Epic): string | null {
+  if (epic.effectYear == null && epic.effect2026 == null) return null;
+  if (epic.effectYear != null && epic.effect2026 != null) {
+    return `Эффект ${formatMoney(epic.effectYear)} / ${formatMoney(epic.effect2026)} в этом году`;
+  }
+  return `Эффект ${formatMoney(epic.effectYear ?? epic.effect2026)}`;
+}
+
 function activeRolesOf(epic: Epic, roles: RoleDef[]): RoleDef[] {
-  const ids = epic.visibleRoles ?? roles.map((r) => r.id);
-  const set = new Set(ids);
-  return roles.filter((r) => set.has(r.id));
+  if (!epic.visibleRoles) return roles;
+  const byId = new Map(roles.map((role) => [role.id, role]));
+  return epic.visibleRoles.map((id) => byId.get(id)).filter((role): role is RoleDef => !!role);
 }
 
 export default function Grid({
@@ -79,7 +103,8 @@ export default function Grid({
   const [popover, setPopover] = useState<PopoverState>(null);
   const [reorderState, setReorderState] = useState<ReorderState>(null);
   const [roleMenu, setRoleMenu] = useState<RoleMenuState>(null);
-  const clickPendingRef = useRef<{ segmentId: string; timer: number } | null>(null);
+  const [epicDragMotion, setEpicDragMotion] = useState<EpicDragMotion>(null);
+  const pointerSessionRef = useRef<PointerSession | null>(null);
 
   const sprints = plan.sprints;
   const visibleSprints = useMemo(() => sprints.slice(cutoffIndex), [sprints, cutoffIndex]);
@@ -116,6 +141,36 @@ export default function Grid({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [roleMenu]);
+
+  useEffect(() => () => pointerSessionRef.current?.cleanup(), []);
+
+  function beginPointerSession(
+    onMove: (event: PointerEvent) => void,
+    onUp: (event: PointerEvent) => void,
+    onCancel: () => void
+  ) {
+    pointerSessionRef.current?.cancel();
+    let session: PointerSession;
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', handleUp);
+      window.removeEventListener('pointercancel', handleCancel);
+      if (pointerSessionRef.current === session) pointerSessionRef.current = null;
+    };
+    const handleUp = (event: PointerEvent) => {
+      cleanup();
+      onUp(event);
+    };
+    const handleCancel = () => {
+      cleanup();
+      onCancel();
+    };
+    session = { cleanup, cancel: handleCancel };
+    pointerSessionRef.current = session;
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', handleUp);
+    window.addEventListener('pointercancel', handleCancel);
+  }
 
   function toggleEpic(id: string) {
     setCollapsed((prev) => {
@@ -190,22 +245,20 @@ export default function Grid({
     });
   }
 
-  function openLabelPopover(epicId: string, segmentId: string, x: number, y: number) {
-    setPopover({ kind: 'label', epicId, segmentId, x, y });
+  function moveRoleWithinEpic(epicId: string, roleId: RoleId, direction: -1 | 1) {
+    mutateEpic(epicId, (ep) => {
+      const current = (ep.visibleRoles ?? plan.roles.map((role) => role.id)).filter((id) => plan.roles.some((role) => role.id === id));
+      const index = current.indexOf(roleId);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= current.length) return ep;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return { ...ep, visibleRoles: next };
+    });
   }
 
-  function handleSegmentClick(epic: Epic, seg: Segment, sprintIndex: number, clientX: number, clientY: number) {
-    if (clickPendingRef.current && clickPendingRef.current.segmentId === seg.id) {
-      window.clearTimeout(clickPendingRef.current.timer);
-      clickPendingRef.current = null;
-      openLabelPopover(epic.id, seg.id, clientX, clientY);
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      clickPendingRef.current = null;
-      setPopover({ kind: 'note', epicId: epic.id, segmentId: seg.id, sprintIndex, x: clientX, y: clientY });
-    }, DOUBLE_CLICK_WINDOW);
-    clickPendingRef.current = { segmentId: seg.id, timer };
+  function openSegmentEditor(epicId: string, segmentId: string, sprintIndex: number, x: number, y: number) {
+    setPopover({ epicId, segmentId, sprintIndex, x, y });
   }
 
   function startSegmentMove(e: React.PointerEvent, epic: Epic, seg: Segment) {
@@ -214,6 +267,7 @@ export default function Grid({
     e.stopPropagation();
     const startX = e.clientX;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const trigger = (e.currentTarget as HTMLElement).closest('.segment-bar') as HTMLElement | null;
     let moved = false;
     let curFrom = seg.from;
     let curTo = seg.to;
@@ -228,19 +282,17 @@ export default function Grid({
       setLivePreview({ type: 'segment', segmentId: seg.id, from: curFrom, to: curTo });
     }
     function onUp(ev: PointerEvent) {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
       setLivePreview(null);
       if (moved && (curFrom !== seg.from || curTo !== seg.to)) {
         mutateSegment(epic.id, seg.id, (s) => ({ ...s, from: curFrom, to: curTo }));
       } else if (!moved) {
+        trigger?.focus({ preventScroll: true });
         const offsetX = ev.clientX - rect.left;
         const sprintIndex = Math.max(seg.from, Math.min(seg.to, seg.from + Math.floor(offsetX / colWidth)));
-        handleSegmentClick(epic, seg, sprintIndex, ev.clientX, ev.clientY);
+        openSegmentEditor(epic.id, seg.id, sprintIndex, ev.clientX, ev.clientY);
       }
     }
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+    beginPointerSession(onMove, onUp, () => setLivePreview(null));
   }
 
   function startResizeLeft(e: React.PointerEvent, epic: Epic, seg: Segment) {
@@ -256,13 +308,10 @@ export default function Grid({
       setLivePreview({ type: 'segment', segmentId: seg.id, from: curFrom, to: seg.to });
     }
     function onUp() {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
       setLivePreview(null);
       if (curFrom !== seg.from) mutateSegment(epic.id, seg.id, (s) => ({ ...s, from: curFrom }));
     }
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+    beginPointerSession(onMove, onUp, () => setLivePreview(null));
   }
 
   function startResizeRight(e: React.PointerEvent, epic: Epic, seg: Segment) {
@@ -278,13 +327,10 @@ export default function Grid({
       setLivePreview({ type: 'segment', segmentId: seg.id, from: seg.from, to: curTo });
     }
     function onUp() {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
       setLivePreview(null);
       if (curTo !== seg.to) mutateSegment(epic.id, seg.id, (s) => ({ ...s, to: curTo }));
     }
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+    beginPointerSession(onMove, onUp, () => setLivePreview(null));
   }
 
   function startEpicMove(e: React.PointerEvent, epic: Epic) {
@@ -294,20 +340,25 @@ export default function Grid({
       return;
     }
     e.preventDefault();
+    e.stopPropagation();
     const startX = e.clientX;
     let moved = false;
     let curDelta = 0;
+    setLivePreview({ type: 'epic', epicId: epic.id, deltaSprints: 0 });
+    setEpicDragMotion({ epicId: epic.id, offsetPx: 0 });
     function onMove(ev: PointerEvent) {
       const deltaPx = ev.clientX - startX;
       if (Math.abs(deltaPx) > CLICK_MOVE_THRESHOLD) moved = true;
       const rawDelta = Math.round(deltaPx / colWidth);
       curDelta = clampEpicMoveDelta(epic, rawDelta, maxIndex);
+      const remainder = deltaPx - curDelta * colWidth;
+      const offsetPx = Math.max(-colWidth * 0.48, Math.min(colWidth * 0.48, remainder));
       setLivePreview({ type: 'epic', epicId: epic.id, deltaSprints: curDelta });
+      setEpicDragMotion({ epicId: epic.id, offsetPx });
     }
     function onUp() {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
       setLivePreview(null);
+      setEpicDragMotion(null);
       if (moved && curDelta !== 0) {
         mutateEpic(epic.id, (ep) => ({
           ...ep,
@@ -317,8 +368,10 @@ export default function Grid({
         onEditEpic(epic.id);
       }
     }
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+    beginPointerSession(onMove, onUp, () => {
+      setLivePreview(null);
+      setEpicDragMotion(null);
+    });
   }
 
   function startEpicReorder(e: React.PointerEvent, epic: Epic) {
@@ -346,8 +399,6 @@ export default function Grid({
       setReorderState(targetId ? { draggedId: epic.id, targetId } : null);
     }
     function onUp() {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
       setReorderState(null);
       if (targetId) {
         const finalTargetId = targetId;
@@ -363,15 +414,21 @@ export default function Grid({
         });
       }
     }
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
+    beginPointerSession(onMove, onUp, () => setReorderState(null));
   }
 
-  function handleTrackDoubleClick(e: React.MouseEvent, epic: Epic, role: RoleDef) {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const offsetX = e.clientX - rect.left;
-    const sprintIndex = Math.max(cutoffIndex, Math.min(maxIndex, cutoffIndex + Math.floor(offsetX / colWidth)));
-    if (segmentOverlapsRoleInEpic(epic, role.id, sprintIndex, sprintIndex)) return;
+  function availableSprint(epic: Epic, role: RoleDef): number | null {
+    if (visibleSprints.length === 0) return null;
+    const preferred = currentSprint >= cutoffIndex && currentSprint <= maxIndex ? currentSprint : cutoffIndex;
+    const candidates = [preferred, ...visibleSprints.map((s) => s.index)].filter((index) => index >= cutoffIndex && index <= maxIndex);
+    return (
+      candidates.find(
+        (index, position) => candidates.indexOf(index) === position && !segmentOverlapsRoleInEpic(epic, role.id, index, index)
+      ) ?? null
+    );
+  }
+
+  function createSegmentAt(epic: Epic, role: RoleDef, sprintIndex: number, x: number, y: number) {
     const newSeg: Segment = {
       id: `${epic.id}-${role.id}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
       role: role.id,
@@ -382,13 +439,29 @@ export default function Grid({
       flag: null,
     };
     mutateEpic(epic.id, (ep) => ({ ...ep, segments: [...ep.segments, newSeg] }));
-    setPopover({ kind: 'label', epicId: epic.id, segmentId: newSeg.id, x: e.clientX, y: e.clientY });
+    openSegmentEditor(epic.id, newSeg.id, sprintIndex, x, y);
+  }
+
+  function handleTrackDoubleClick(e: React.MouseEvent, epic: Epic, role: RoleDef) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const sprintIndex = Math.max(cutoffIndex, Math.min(maxIndex, cutoffIndex + Math.floor(offsetX / colWidth)));
+    if (segmentOverlapsRoleInEpic(epic, role.id, sprintIndex, sprintIndex)) return;
+    (e.currentTarget as HTMLElement).focus({ preventScroll: true });
+    createSegmentAt(epic, role, sprintIndex, e.clientX, e.clientY);
   }
 
   let rowCounter = 3;
 
   return (
-    <div className="grid-scroll" ref={scrollRef} onScroll={(e) => onHScroll(e.currentTarget.scrollLeft)}>
+    <div
+      className="grid-scroll"
+      ref={scrollRef}
+      onScroll={(e) => onHScroll(e.currentTarget.scrollLeft)}
+      role="region"
+      aria-label="План по фичам, ролям и спринтам"
+      tabIndex={0}
+    >
       <div className="grid" style={{ ['--n-cols' as any]: n, ['--col-width' as any]: `${colWidth}px` }}>
         {Array.from({ length: n + 1 }, (_, i) => (
           <div key={`sl-${i}`} className="grid-marker sprint-line" style={{ left: LABEL_WIDTH + i * colWidth }} />
@@ -413,7 +486,7 @@ export default function Grid({
             <div className="grid-marker freeze-line" style={{ left: LABEL_WIDTH + toDisplayCol(freezeRealIdx) * colWidth }} />
           )}
 
-        <div className="cell label-cell" style={{ gridColumn: '1 / 2', gridRow: 1 }} />
+        <div className="cell label-cell corner-quarter" style={{ gridColumn: '1 / 2', gridRow: 1 }} aria-hidden="true" />
         {quarterGroups.map((g) => (
           <div
             key={g.quarter + g.start}
@@ -448,6 +521,7 @@ export default function Grid({
           const headerRow = rowCounter++;
           const span = epicSpan(epic);
           const isEpicDragging = livePreview?.type === 'epic' && livePreview.epicId === epic.id;
+          const epicDragOffsetPx = epicDragMotion?.epicId === epic.id ? epicDragMotion.offsetPx : 0;
           const displaySpan =
             span && isEpicDragging && livePreview?.type === 'epic'
               ? toDisplayRange(span.from + livePreview.deltaSprints, span.to + livePreview.deltaSprints)
@@ -465,10 +539,10 @@ export default function Grid({
           const hiddenRoles = plan.roles.filter((r) => !activeRoles.includes(r));
 
           const roleRows = showRoleRows
-            ? activeRoles.map((role) => {
+            ? activeRoles.map((role, roleIndex) => {
                 const row = rowCounter++;
                 const segs = epic.segments.filter((s) => s.role === role.id);
-                return { role, row, segs };
+                return { role, roleIndex, row, segs };
               })
             : [];
           const roleAddRow = showRoleRows && hiddenRoles.length > 0 ? rowCounter++ : null;
@@ -477,62 +551,122 @@ export default function Grid({
           return (
             <div key={epic.id} style={{ display: 'contents' }}>
               <div
-                className={`cell label-cell epic-header-label${reorderState?.targetId === epic.id ? ' reorder-target' : ''}`}
+                className={`cell label-cell epic-header-label${reorderState?.targetId === epic.id ? ' reorder-target' : ''}${isEpicDragging ? ' epic-dragging' : ''}`}
                 style={{ gridColumn: '1 / 2', gridRow: headerRow }}
                 data-epic-header={epic.id}
               >
                 <span className="reorder-handle" onPointerDown={(e) => startEpicReorder(e, epic)} title="Перетащить, чтобы изменить порядок">
                   ⠿
                 </span>
-                <span
-                  className={`collapse-arrow${isCollapsed ? ' collapsed' : ''}`}
+                <button
+                  type="button"
+                  className={`collapse-arrow epic-collapse${isCollapsed ? ' collapsed' : ''}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleEpic(epic.id);
                   }}
+                  aria-expanded={!isCollapsed}
+                  aria-label={`${isCollapsed ? 'Развернуть' : 'Свернуть'} фичу «${epic.title}»`}
                 >
                   ▾
-                </span>
-                <span className="epic-title" onPointerDown={(e) => startEpicMove(e, epic)}>
+                </button>
+                <button
+                  type="button"
+                  className="epic-title"
+                  onPointerDown={(e) => startEpicMove(e, epic)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    e.preventDefault();
+                    onEditEpic(epic.id);
+                  }}
+                  aria-label={`Открыть фичу «${epic.title}». Перетаскивание меняет срок`}
+                >
                   {epic.title}
-                </span>
+                </button>
               </div>
               <div
-                className="cell epic-header-track"
+                className={`cell epic-header-track${isEpicDragging ? ' epic-dragging' : ''}`}
                 style={{ gridColumn: `2 / span ${n}`, gridRow: headerRow, position: 'relative' }}
                 onPointerDown={(e) => startEpicMove(e, epic)}
               >
+                {isEpicDragging && displaySpan && livePreview?.type === 'epic' && (
+                  <div
+                    className="epic-drag-landing"
+                    style={{
+                      left: displaySpan.from * colWidth + 3,
+                      width: (displaySpan.to - displaySpan.from + 1) * colWidth - 6,
+                    }}
+                    aria-hidden="true"
+                  >
+                    <span>{livePreview.deltaSprints === 0 ? 'сюда' : `${livePreview.deltaSprints > 0 ? '+' : ''}${livePreview.deltaSprints} спр.`}</span>
+                  </div>
+                )}
                 <div className="epic-info-overlay">
-                  <span className="epic-badge">{teamsBadge(plan.teams, epic.teams)}</span>
-                  <span className="epic-badge">{epic.status}</span>
-                  <span>
-                    эффект: {formatMoney(epic.effectYear)} / в этом году: {formatMoney(epic.effect2026)}
-                  </span>
-                  {epic.needsKb && <span className="epic-badge">нужна БЗ</span>}
+                  <span className="epic-badge epic-team-badge">{teamsBadge(plan.teams, epic.teams)}</span>
+                  <span className="epic-badge epic-status-badge">{STATUS_LABELS[epic.status]}</span>
+                  {effectSummary(epic) && <span className="epic-effect">{effectSummary(epic)}</span>}
                   {trueSpan && (
                     <span className="epic-badge duration-badge">
-                      {trueSpan.lengthSprints} спр. итого ({formatDateShort(sprints[Math.min(trueSpan.from, sprints.length - 1)]?.dateFrom ?? sprints[0].dateFrom)}–
-                      {formatDateShort(sprints[Math.min(trueSpan.to, sprints.length - 1)]?.dateTo ?? sprints[sprints.length - 1].dateTo)})
+                      {trueSpan.lengthSprints} {sprintWord(trueSpan.lengthSprints)} · {formatDateShort(sprints[Math.min(trueSpan.from, sprints.length - 1)]?.dateFrom ?? sprints[0].dateFrom)}–
+                      {formatDateShort(sprints[Math.min(trueSpan.to, sprints.length - 1)]?.dateTo ?? sprints[sprints.length - 1].dateTo)}
                     </span>
                   )}
                 </div>
               </div>
 
-              {roleRows.map(({ role, row, segs }) => (
+              {roleRows.map(({ role, roleIndex, row, segs }) => (
                 <div key={role.id} style={{ display: 'contents' }}>
                   <div className="cell label-cell role-label-cell" style={{ gridColumn: '1 / 2', gridRow: row }}>
                     <span className="role-label-text">{role.label}</span>
                     {segs.length > 0 && <span className="role-duration">{roleDurationSprints(segs)} спр.</span>}
+                    <span className="role-order-controls">
+                      <button
+                        type="button"
+                        disabled={roleIndex === 0}
+                        aria-label={`Переместить роль «${role.label}» выше в фиче «${epic.title}»`}
+                        title="Выше только в этой фиче"
+                        onClick={() => moveRoleWithinEpic(epic.id, role.id, -1)}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        disabled={roleIndex === activeRoles.length - 1}
+                        aria-label={`Переместить роль «${role.label}» ниже в фиче «${epic.title}»`}
+                        title="Ниже только в этой фиче"
+                        onClick={() => moveRoleWithinEpic(epic.id, role.id, 1)}
+                      >
+                        ↓
+                      </button>
+                    </span>
                     {segs.length === 0 && (
-                      <button className="role-remove-btn" title="Убрать роль" onClick={() => removeRole(epic.id, role.id)}>
+                      <button
+                        className="role-remove-btn"
+                        aria-label={`Убрать роль «${role.label}» из фичи «${epic.title}»`}
+                        title="Убрать роль"
+                        onClick={() => removeRole(epic.id, role.id)}
+                      >
                         ✕
                       </button>
                     )}
                   </div>
                   <div
-                    className="cell"
+                    className="cell role-track"
                     style={{ gridColumn: `2 / span ${n}`, gridRow: row, position: 'relative' }}
                     onDoubleClick={(e) => handleTrackDoubleClick(e, epic, role)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                      const sprintIndex = availableSprint(epic, role);
+                      if (sprintIndex === null) return;
+                      e.preventDefault();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = Math.min(rect.right - 12, rect.left + (sprintIndex - cutoffIndex + 0.5) * colWidth);
+                      createSegmentAt(epic, role, sprintIndex, x, rect.top + rect.height / 2);
+                    }}
+                    role="group"
+                    tabIndex={0}
+                    aria-label={`${role.label}, фича «${epic.title}». Enter или пробел — добавить колбаску в ближайший свободный спринт`}
+                    title="Двойной клик по свободному месту — добавить колбаску"
                   >
                     {segs.map((seg) => {
                       const real = liveRealRange(epic, seg);
@@ -542,6 +676,7 @@ export default function Grid({
                         <SegmentBar
                           key={seg.id}
                           segment={seg}
+                          roleLabel={role.label}
                           roleColor={roleColorOf(plan.roles, role.id)}
                           colWidth={colWidth}
                           from={disp.from}
@@ -549,9 +684,11 @@ export default function Grid({
                           status={segmentLoadStatus(epic, seg)}
                           spotlight={isSpotlit(epic, seg)}
                           isDragging={(livePreview?.type === 'segment' && livePreview.segmentId === seg.id) || !!isEpicDragging}
+                          dragOffsetX={isEpicDragging ? epicDragOffsetPx : null}
                           onBodyPointerDown={(e) => startSegmentMove(e, epic, seg)}
                           onLeftHandlePointerDown={(e) => startResizeLeft(e, epic, seg)}
                           onRightHandlePointerDown={(e) => startResizeRight(e, epic, seg)}
+                          onEdit={(x, y) => openSegmentEditor(epic.id, seg.id, seg.from, x, y)}
                         />
                       );
                     })}
@@ -581,7 +718,11 @@ export default function Grid({
                   <div className="cell" style={{ gridColumn: `2 / span ${n}`, gridRow: rollupRow, position: 'relative' }}>
                     <div
                       className="segment-bar management-bar"
-                      style={{ left: displaySpan.from * colWidth + 3, width: (displaySpan.to - displaySpan.from + 1) * colWidth - 6 }}
+                      style={{
+                        left: displaySpan.from * colWidth + 3,
+                        width: (displaySpan.to - displaySpan.from + 1) * colWidth - 6,
+                        transform: isEpicDragging ? `translateX(${epicDragOffsetPx}px)` : undefined,
+                      }}
                     >
                       <span className="seg-label">
                         {epic.title} · {trueSpan?.lengthSprints} спр.
@@ -624,39 +765,27 @@ export default function Grid({
           const epic = plan.epics.find((e) => e.id === popover.epicId);
           const seg = epic?.segments.find((s) => s.id === popover.segmentId);
           if (!epic || !seg) return null;
-          if (popover.kind === 'label') {
-            return (
-              <TextPopover
-                x={popover.x}
-                y={popover.y}
-                title="Название колбаски"
-                initialText={seg.label}
-                onSave={(text) => {
-                  mutateSegment(epic.id, seg.id, (s) => ({ ...s, label: text }));
-                  setPopover(null);
-                }}
-                onDelete={() => {
-                  mutateEpic(epic.id, (ep) => ({ ...ep, segments: ep.segments.filter((s) => s.id !== seg.id) }));
-                  setPopover(null);
-                }}
-                onClose={() => setPopover(null)}
-              />
-            );
-          }
           const sprint = sprints[popover.sprintIndex];
           return (
-            <TextPopover
+            <SegmentEditorPopover
               x={popover.x}
               y={popover.y}
-              title={`Комментарий · спринт ${sprintNumbersLabel(plan.teams, sprint.index)} (${formatDateShort(sprint.dateFrom)})`}
-              initialText={seg.notes?.[popover.sprintIndex] ?? ''}
-              onSave={(text) => {
+              sprintLabel={`Спринт ${sprintNumbersLabel(plan.teams, sprint.index)} · ${formatDateShort(sprint.dateFrom)}`}
+              roleColor={roleColorOf(plan.roles, seg.role)}
+              initialLabel={seg.label}
+              initialNote={seg.notes?.[popover.sprintIndex] ?? ''}
+              initialColor={seg.color}
+              onSave={({ label, note, color }) => {
                 mutateSegment(epic.id, seg.id, (s) => {
                   const notes = { ...(s.notes ?? {}) };
-                  if (text.trim()) notes[popover.sprintIndex] = text;
+                  if (note.trim()) notes[popover.sprintIndex] = note.trim();
                   else delete notes[popover.sprintIndex];
-                  return { ...s, notes };
+                  return { ...s, label, color, notes };
                 });
+                setPopover(null);
+              }}
+              onDelete={() => {
+                mutateEpic(epic.id, (ep) => ({ ...ep, segments: ep.segments.filter((s) => s.id !== seg.id) }));
                 setPopover(null);
               }}
               onClose={() => setPopover(null)}

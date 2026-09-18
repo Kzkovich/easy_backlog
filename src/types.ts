@@ -73,6 +73,15 @@ export interface Segment {
   notes?: Record<number, string>; // индекс спринта -> комментарий именно на этот спринт колбаски
 }
 
+/** Импортированный базовый план. Не участвует в расчёте загрузки и редактировании факта. */
+export interface PlannedSegment {
+  id: string;
+  role: RoleId;
+  from: number;
+  to: number;
+  label: string;
+}
+
 export interface EpicLink {
   title: string;
   url: string;
@@ -91,6 +100,7 @@ export interface Epic {
   notes: string;
   links: EpicLink[];
   segments: Segment[];
+  plannedSegments?: PlannedSegment[]; // отсутствует в старых планах; normalizePlan добавляет пустой список
   visibleRoles?: RoleId[]; // какие роли показывать строками; undefined = все роли (обратная совместимость)
 }
 
