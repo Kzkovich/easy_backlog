@@ -96,6 +96,7 @@ export interface Epic {
   segments: Segment[];
   plannedFrom?: number; // плановый старт всей задачи (спринт) — серый контур
   plannedTo?: number; // плановый финиш всей задачи (спринт)
+  pipelineOverride?: Pipeline;
   visibleRoles?: RoleId[]; // какие роли показывать строками; undefined = все роли (обратная совместимость)
 }
 
@@ -115,8 +116,21 @@ export interface RiskThresholds {
   okPerPersonShared: number; // то же для совмещённых людей (0,5 на две команды)
 }
 
+export type StageLinkType = 'sequential' | 'earliest';
+
+export interface PipelineStage {
+  id: string;
+  roles: RoleId[]; // роли этапа, работают параллельно
+  linkType: StageLinkType; // как этап зависит от предыдущего
+}
+
+export interface Pipeline {
+  stages: PipelineStage[];
+}
+
 export interface Settings {
   thresholds: RiskThresholds;
+  pipeline?: Pipeline;
   rolloutDeadlineOffsetFromFreeze: number; // спринтов до фриза, после которых раскатка не успевает
 }
 
