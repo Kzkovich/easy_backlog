@@ -2155,6 +2155,80 @@ body {
   margin: 0;
 }
 
+/* ——— редактор пайплайна ——— */
+
+.pipeline-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pipeline-stage {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.pipeline-stage-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pipeline-stage-head .icon-btn:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.pipeline-link-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.pipeline-link-toggle input {
+  margin: 0;
+}
+
+.pipeline-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+}
+
+.pipeline-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 5px 9px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.pipeline-role-chip.on {
+  border-color: var(--accent);
+  background: var(--current-bg);
+}
+
+.pipeline-role-chip input {
+  margin: 0;
+}
+
 /* ——— угол сетки ——— */
 
 .corner-legend {
