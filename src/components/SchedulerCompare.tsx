@@ -14,7 +14,7 @@ interface Props {
   cutoffIndex: number;
   currentSprint: number;
   teamFilter: string;
-  onApply: (selectedIds: Set<string>) => void;
+  onApply: (draftEpics: Epic[], selectedIds: Set<string>) => void;
   onDiscard: () => void;
 }
 
@@ -36,7 +36,7 @@ export default function SchedulerCompare({
 
   const draftPlan: Plan = useMemo(() => ({ ...plan, epics: draft }), [plan, draft]);
   const load = useMemo(() => computeLoad(draftPlan), [draftPlan]);
-  const highlightSegments = useMemo(() => movedSegmentIds(plan, snapshot), [plan, snapshot]);
+  const highlightSegments = useMemo(() => movedSegmentIds(plan, { ...snapshot, epics: draft }), [plan, snapshot, draft]);
   const visibleDraftEpics = useMemo(
     () => draft.filter((e) => teamFilter === 'ALL' || e.teams.includes(teamFilter)),
     [draft, teamFilter]
@@ -105,13 +105,13 @@ export default function SchedulerCompare({
 
       <div className="scheduler-compare-footer">
         <span className="scheduler-compare-hint">
-          Жёлтым подсвечены сдвинутые колбаски. Черновик можно двигать — это не меняет итог.
+          Жёлтым подсвечены сдвинутые колбаски. Черновик можно двигать — изменения попадут в итог.
         </span>
         <div className="spacer" />
-        <button className="btn" onClick={() => onApply(new Set(selected))} disabled={selected.size === 0}>
+        <button className="btn" onClick={() => onApply(draft, new Set(selected))} disabled={selected.size === 0}>
           Применить выбранные
         </button>
-        <button className="btn primary" onClick={() => onApply(new Set(draft.map((e) => e.id)))}>
+        <button className="btn primary" onClick={() => onApply(draft, new Set(draft.map((e) => e.id)))}>
           Применить все
         </button>
         <button className="btn" onClick={onDiscard}>

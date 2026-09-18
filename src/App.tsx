@@ -209,12 +209,12 @@ export default function App() {
     setLastDeleted(null);
   }
 
-  function applyScheduler(selectedIds: Set<string>) {
-    if (!schedulerDraft || !plan) return;
+  function applyScheduler(draftEpics: Epic[], selectedIds: Set<string>) {
+    if (!plan) return;
     updatePlan((p) => ({
       ...p,
       epics: p.epics.map((e) => {
-        const draftEpic = schedulerDraft.snapshot.epics.find((d) => d.id === e.id);
+        const draftEpic = draftEpics.find((d) => d.id === e.id);
         return draftEpic && selectedIds.has(e.id) ? { ...e, segments: draftEpic.segments } : e;
       }),
     }));
