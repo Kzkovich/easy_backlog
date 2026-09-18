@@ -17,7 +17,6 @@ interface Props {
   isDragging: boolean;
   dragOffsetX: number | null;
   cutoffIndex: number;
-  currentSprint: number;
   onBodyPointerDown: (e: React.PointerEvent) => void;
   onLeftHandlePointerDown: (e: React.PointerEvent) => void;
   onRightHandlePointerDown: (e: React.PointerEvent) => void;
@@ -42,7 +41,6 @@ export default function SegmentBar({
   isDragging,
   dragOffsetX,
   cutoffIndex,
-  currentSprint,
   onBodyPointerDown,
   onLeftHandlePointerDown,
   onRightHandlePointerDown,
@@ -60,10 +58,6 @@ export default function SegmentBar({
       .filter((n) => Number.isInteger(n.sprintIndex) && typeof n.text === 'string' && n.text.trim().length > 0)
       .filter((n) => n.sprintIndex - cutoffIndex >= from && n.sprintIndex - cutoffIndex <= to);
   }, [segment.notes, cutoffIndex, from, to]);
-
-  const currentDisplay = currentSprint - cutoffIndex;
-  const showLens = currentSprint >= 0 && currentDisplay >= from && currentDisplay <= to;
-  const lensLeft = (currentDisplay - from) * colWidth;
 
   const [justMerged, setJustMerged] = useState(false);
   const prevMergeRef = useRef({ left: mergeLeft, right: mergeRight });
@@ -124,7 +118,6 @@ export default function SegmentBar({
         style={{ width: HANDLE_W }}
         onPointerDown={onRightHandlePointerDown}
       />
-      {showLens && <span className="segment-lens" style={{ left: lensLeft, width: colWidth }} aria-hidden="true" />}
       {noteMarkers.map((n) => (
         <button
           key={n.sprintIndex}

@@ -465,6 +465,14 @@ export default function Grid({
       tabIndex={0}
     >
       <div className="grid" style={{ ['--n-cols' as any]: n, ['--col-width' as any]: `${colWidth}px` }}>
+        <svg className="lens-filter-defs" aria-hidden="true" focusable="false" width="0" height="0">
+          <defs>
+            <filter id="kolbaski-lens" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.012 0.012" numOctaves="2" seed="11" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G" />
+            </filter>
+          </defs>
+        </svg>
         {Array.from({ length: n + 1 }, (_, i) => (
           <div key={`sl-${i}`} className="grid-marker sprint-line" style={{ left: LABEL_WIDTH + i * colWidth }} />
         ))}
@@ -477,6 +485,13 @@ export default function Grid({
           <div
             className="grid-marker current-block"
             style={{ left: LABEL_WIDTH + toDisplayCol(currentSprint) * colWidth, width: colWidth }}
+          />
+        )}
+        {currentSprint >= 0 && toDisplayCol(currentSprint) >= 0 && toDisplayCol(currentSprint) < n && (
+          <div
+            className="grid-marker current-lens"
+            style={{ left: LABEL_WIDTH + toDisplayCol(currentSprint) * colWidth, width: colWidth }}
+            aria-hidden="true"
           />
         )}
         {quarterGroups.map((g) => (
@@ -718,7 +733,6 @@ export default function Grid({
                           isDragging={(livePreview?.type === 'segment' && livePreview.segmentId === seg.id) || !!isEpicDragging}
                           dragOffsetX={isEpicDragging ? epicDragOffsetPx : null}
                           cutoffIndex={cutoffIndex}
-                          currentSprint={currentSprint}
                           onBodyPointerDown={(e) => startSegmentMove(e, epic, seg)}
                           onLeftHandlePointerDown={(e) => startResizeLeft(e, epic, seg)}
                           onRightHandlePointerDown={(e) => startResizeRight(e, epic, seg)}
