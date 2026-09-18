@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { Plan, Epic } from '../types';
 import { buildSprints, currentSprintIndex } from './calendar';
 import { computeLoad } from './load';
-import { defaultPipeline, pipelineForEpic, stageFloor, runScheduler } from './scheduler';
+import { defaultPipeline, pipelineForEpic, stageFloor, runScheduler, distributeEpic } from './scheduler';
 
 describe('defaultPipeline', () => {
   it('has six stages in the documented order', () => {
@@ -110,6 +110,35 @@ describe('runScheduler comfortable', () => {
     expect(midlCells.some((c) => c.status === 'over')).toBe(false);
     const e3 = snap.epics.find((e) => e.id === 'e3')!;
     expect(e3.segments[0].from).toBeGreaterThanOrEqual(31);
+  });
+});
+
+describe('distributeEpic', () => {
+  it('fits inside the window when there is room', () => {
+    const plan = makePlan();
+    const epic = plan.epics[0];
+    const from = 30;
+    const to = 50;
+    const durations: Record<string, number> = {
+      grooming: 2, design: 2, analytics: 2, midl: 3, android: 3, ios: 3, web: 3, testing: 2, rollout: 1,
+    };
+    const res = distributeEpic(plan, epic, from, to, durations);
+    expect(res.fits).toBe(true);
+    expect(res.segments.length).toBe(9);
+    for (const s of res.segments) {
+      expect(s.from).toBeGreaterThanOrEqual(from);
+      expect(s.to).toBeLessThanOrEqual(to);
+    }
+  });
+
+  it('returns fits:false when a stage would exceed `to`', () => {
+    const plan = makePlan();
+    const epic = plan.epics[0];
+    const durations: Record<string, number> = {
+      grooming: 2, design: 2, analytics: 2, midl: 2, android: 2, ios: 2, web: 2, testing: 2, rollout: 1,
+    };
+    const res = distributeEpic(plan, epic, 30, 33, durations);
+    expect(res.fits).toBe(false);
   });
 });
 

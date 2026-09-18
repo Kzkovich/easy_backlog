@@ -1,6 +1,6 @@
 import { computeLoad, loadKey, scopesForEpicRole } from './load';
 import { currentSprintIndex } from './calendar';
-import type { Epic, Pipeline, Plan, ScenarioSnapshot, Segment, StageLinkType } from '../types';
+import type { Epic, Pipeline, Plan, RoleId, ScenarioSnapshot, Segment, StageLinkType } from '../types';
 
 /** Дефолтный пайплайн по DEFAULT_ROLES (seed, редактируется пользователем). */
 export function defaultPipeline(): Pipeline {
@@ -45,6 +45,46 @@ function wouldOverload(plan: Plan, epic: Epic, segment: Segment, from: number, t
     }
   }
   return false;
+}
+
+export interface DistributeResult {
+  segments: Segment[];
+  fits: boolean;
+}
+
+/** Resource Smoothing: уложить роли внутри фиксированного окна [from,to]
+ *  по пайплайну; длительности ролей заданы, не сжимаются. fits=false, если
+ *  хотя бы один сегмент не помещается в окно. */
+export function distributeEpic(
+  plan: Plan,
+  epic: Epic,
+  from: number,
+  to: number,
+  durations: Record<RoleId, number>
+): DistributeResult {
+  const pipeline = pipelineForEpic(plan, epic);
+  const segments: Segment[] = [];
+  const roleEnd: Record<RoleId, number> = {};
+  let prevStageEnds: number[] = [];
+
+  for (const stage of pipeline.stages) {
+    const floor = prevStageEnds.length ? Math.max(from, stageFloor(prevStageEnds, stage.linkType)) : from;
+    const thisStageEnds: number[] = [];
+    for (const role of stage.roles) {
+      const duration = durations[role];
+      if (!Number.isFinite(duration) || duration <= 0) continue;
+      const ownPrev = roleEnd[role];
+      const start = Math.max(floor, ownPrev !== undefined ? ownPrev + 1 : from);
+      const end = start + duration - 1;
+      if (end > to) return { segments, fits: false };
+      segments.push({ id: `${epic.id}-${role}-dist-${segments.length}`, role, from: start, to: end, label: '', color: null, flag: null });
+      roleEnd[role] = end;
+      thisStageEnds.push(end);
+    }
+    prevStageEnds = thisStageEnds;
+  }
+
+  return { segments, fits: true };
 }
 
 export function movedSegmentIds(current: Plan, draft: ScenarioSnapshot): Set<string> {

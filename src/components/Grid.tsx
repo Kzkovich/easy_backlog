@@ -6,6 +6,7 @@ import { loadKey, scopesForEpicRole, type LoadResult, type LoadStatus } from '..
 import { epicSpan, roleDurationSprints } from '../lib/duration';
 import { clampMoveDelta, clampResizeLeft, clampResizeRight, clampEpicMoveDelta, segmentOverlapsRoleInEpic } from '../lib/dnd';
 import { sprintNumbersLabel, teamsBadge } from '../lib/teams';
+import { distributeEpic, pipelineForEpic } from '../lib/scheduler';
 import type { LoadHighlight } from './LoadPanel';
 import SegmentBar from './SegmentBar';
 import SegmentEditorPopover from './SegmentEditorPopover';
@@ -39,6 +40,8 @@ type ReorderState = { draggedId: string; targetId: string } | null;
 type RoleMenuState = { epicId: string; x: number; y: number } | null;
 type EpicDragMotion = { epicId: string; offsetPx: number } | null;
 type PointerSession = { cleanup: () => void; cancel: () => void };
+type EnvelopeMap = Record<string, { from: number; to: number }>;
+type OverflowState = { epicId: string; from: number; to: number; durations: Record<RoleId, number>; overflow: number } | null;
 
 const CLICK_MOVE_THRESHOLD = 4;
 const LABEL_WIDTH = 260; // держим в синхроне с --label-width в styles.css
@@ -108,6 +111,9 @@ export default function Grid({
   const [reorderState, setReorderState] = useState<ReorderState>(null);
   const [roleMenu, setRoleMenu] = useState<RoleMenuState>(null);
   const [epicDragMotion, setEpicDragMotion] = useState<EpicDragMotion>(null);
+  const [envelope, setEnvelope] = useState<EnvelopeMap>({});
+  const [distributingEpicId, setDistributingEpicId] = useState<string | null>(null);
+  const [overflow, setOverflow] = useState<OverflowState>(null);
   const pointerSessionRef = useRef<PointerSession | null>(null);
 
   const sprints = plan.sprints;
@@ -421,6 +427,65 @@ export default function Grid({
     beginPointerSession(onMove, onUp, () => setReorderState(null));
   }
 
+  function startEnvelopeDrag(e: React.PointerEvent, epic: Epic) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const track = (e.currentTarget as HTMLElement).closest('.epic-header-track') as HTMLElement | null;
+    const rect = track?.getBoundingClientRect();
+    if (!rect) return;
+    const sprintAt = (clientX: number) =>
+      Math.max(cutoffIndex, Math.min(maxIndex, cutoffIndex + Math.floor((clientX - rect.left) / colWidth)));
+    const anchor = sprintAt(e.clientX);
+    setEnvelope((prev) => ({ ...prev, [epic.id]: { from: anchor, to: anchor } }));
+    function onMove(ev: PointerEvent) {
+      const cur = sprintAt(ev.clientX);
+      setEnvelope((prev) => ({ ...prev, [epic.id]: { from: Math.min(anchor, cur), to: Math.max(anchor, cur) } }));
+    }
+    beginPointerSession(onMove, () => undefined, () => undefined);
+  }
+
+  function clearEnvelope(epicId: string) {
+    setEnvelope((prev) => {
+      const next = { ...prev };
+      delete next[epicId];
+      return next;
+    });
+  }
+
+  function handleDistribute(epic: Epic, durations: Record<RoleId, number>) {
+    const env = envelope[epic.id];
+    if (!env) return;
+    const res = distributeEpic(plan, epic, env.from, env.to, durations);
+    if (res.fits) {
+      mutateEpic(epic.id, (ep) => ({
+        ...ep,
+        segments: [...ep.segments.filter((s) => s.from < currentSprint), ...res.segments],
+      }));
+      setDistributingEpicId(null);
+      return;
+    }
+    const probe = distributeEpic(plan, epic, env.from, Number.MAX_SAFE_INTEGER, durations);
+    const maxEnd = probe.segments.reduce((m, s) => Math.max(m, s.to), env.from - 1);
+    const overflowSprints = Math.max(1, maxEnd - env.to);
+    setDistributingEpicId(null);
+    setOverflow({ epicId: epic.id, from: env.from, to: env.to, durations, overflow: overflowSprints });
+  }
+
+  function handleExpand(epic: Epic) {
+    if (!overflow) return;
+    const newTo = overflow.to + overflow.overflow;
+    const res = distributeEpic(plan, epic, overflow.from, newTo, overflow.durations);
+    if (res.fits) {
+      setEnvelope((prev) => ({ ...prev, [epic.id]: { from: overflow.from, to: newTo } }));
+      mutateEpic(epic.id, (ep) => ({
+        ...ep,
+        segments: [...ep.segments.filter((s) => s.from < currentSprint), ...res.segments],
+      }));
+    }
+    setOverflow(null);
+  }
+
   function availableSprint(epic: Epic, role: RoleDef): number | null {
     if (visibleSprints.length === 0) return null;
     const preferred = currentSprint >= cutoffIndex && currentSprint <= maxIndex ? currentSprint : cutoffIndex;
@@ -575,6 +640,9 @@ export default function Grid({
           const anyOverflowLeft = pf != null && epic.segments.some((s) => s.from < pf);
           const anyOverflowRight = pt != null && epic.segments.some((s) => s.to > pt);
 
+          const env = envelope[epic.id];
+          const envDisp = env ? toDisplayRange(env.from, env.to) : null;
+
           return (
             <div key={epic.id} style={{ display: 'contents' }}>
               {plannedDisp && (
@@ -586,6 +654,18 @@ export default function Grid({
                   <div
                     className="planned-band-fill"
                     style={{ left: plannedDisp.from * colWidth, width: (plannedDisp.to - plannedDisp.from + 1) * colWidth }}
+                  />
+                </div>
+              )}
+              {envDisp && (
+                <div
+                  className="planned-band envelope-band"
+                  style={{ gridColumn: `2 / span ${n}`, gridRow: `${headerRow} / ${rowCounter}` }}
+                  aria-hidden="true"
+                >
+                  <div
+                    className="planned-band-fill"
+                    style={{ left: envDisp.from * colWidth, width: (envDisp.to - envDisp.from + 1) * colWidth }}
                   />
                 </div>
               )}
@@ -658,6 +738,38 @@ export default function Grid({
                       {formatDateShort(sprints[Math.min(trueSpan.to, sprints.length - 1)]?.dateTo ?? sprints[sprints.length - 1].dateTo)}
                     </span>
                   )}
+                </div>
+                <div className="envelope-controls" onPointerDown={(e) => e.stopPropagation()}>
+                  {env && (
+                    <>
+                      <button
+                        type="button"
+                        className="btn small"
+                        onClick={() => setDistributingEpicId(epic.id)}
+                        title="Распределить роли внутри серого диапазона"
+                      >
+                        Распределить
+                      </button>
+                      <button
+                        type="button"
+                        className="envelope-handle"
+                        onClick={() => clearEnvelope(epic.id)}
+                        title="Сбросить серый диапазон"
+                        aria-label={`Сбросить серый диапазон фичи «${epic.title}»`}
+                      >
+                        ✕
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className="envelope-handle"
+                    onPointerDown={(e) => startEnvelopeDrag(e, epic)}
+                    title="Задать/изменить серый диапазон распределения"
+                    aria-label={`Задать серый диапазон распределения фичи «${epic.title}»`}
+                  >
+                    ⇔
+                  </button>
                 </div>
               </div>
 
@@ -857,6 +969,139 @@ export default function Grid({
             />
           );
         })()}
+
+      {distributingEpicId &&
+        (() => {
+          const epic = plan.epics.find((e) => e.id === distributingEpicId);
+          const env = epic ? envelope[epic.id] : undefined;
+          if (!epic || !env) return null;
+          return (
+            <DistributeModal
+              plan={plan}
+              epic={epic}
+              from={env.from}
+              to={env.to}
+              onApply={(durations) => handleDistribute(epic, durations)}
+              onClose={() => setDistributingEpicId(null)}
+            />
+          );
+        })()}
+
+      {overflow &&
+        (() => {
+          const epic = plan.epics.find((e) => e.id === overflow.epicId);
+          if (!epic) return null;
+          return (
+            <OverflowDialog
+              overflow={overflow}
+              onExpand={() => handleExpand(epic)}
+              onCancel={() => setOverflow(null)}
+            />
+          );
+        })()}
+    </div>
+  );
+}
+
+function DistributeModal({
+  plan,
+  epic,
+  from,
+  to,
+  onApply,
+  onClose,
+}: {
+  plan: Plan;
+  epic: Epic;
+  from: number;
+  to: number;
+  onApply: (durations: Record<RoleId, number>) => void;
+  onClose: () => void;
+}) {
+  const roleIds = useMemo(() => [...new Set(pipelineForEpic(plan, epic).stages.flatMap((s) => s.roles))], [plan, epic]);
+  const [durations, setDurations] = useState<Record<RoleId, number>>(() => {
+    const init: Record<RoleId, number> = {};
+    for (const r of roleIds) {
+      const d = roleDurationSprints(epic.segments.filter((s) => s.role === r));
+      init[r] = d > 0 ? d : 1;
+    }
+    return init;
+  });
+
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="distribute-modal" role="dialog" aria-modal="true" aria-label="Распределить роли">
+        <div className="distribute-modal-title">Распределить · {epic.title}</div>
+        <div className="distribute-modal-range">
+          Окно: {from}–{to} ({to - from + 1} {sprintWord(to - from + 1)})
+        </div>
+        <div className="distribute-role-list">
+          {roleIds.map((rid) => {
+            const role = plan.roles.find((r) => r.id === rid);
+            return (
+              <label key={rid} className="distribute-role-row">
+                <span className="distribute-role-label">{role?.label ?? rid}</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={durations[rid]}
+                  onChange={(ev) =>
+                    setDurations((d) => ({ ...d, [rid]: Math.max(1, parseInt(ev.target.value, 10) || 1) }))
+                  }
+                />
+                <span className="distribute-role-unit">спр.</span>
+              </label>
+            );
+          })}
+        </div>
+        <div className="distribute-modal-actions">
+          <button className="btn small" onClick={onClose}>
+            Отмена
+          </button>
+          <button className="btn primary small" onClick={() => onApply(durations)}>
+            ОК
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OverflowDialog({
+  overflow,
+  onExpand,
+  onCancel,
+}: {
+  overflow: { from: number; to: number; overflow: number };
+  onExpand: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+      <div className="distribute-modal" role="dialog" aria-modal="true" aria-label="Диапазон не помещается">
+        <div className="distribute-modal-title">Не помещается</div>
+        <p className="distribute-modal-text">
+          Роли не умещаются в диапазон {overflow.from}–{overflow.to}. Расширить диапазон на {overflow.overflow}{' '}
+          {sprintWord(overflow.overflow)}?
+        </p>
+        <div className="distribute-modal-actions">
+          <button className="btn small" onClick={onCancel}>
+            Отменить
+          </button>
+          <button className="btn primary small" onClick={onExpand}>
+            Расширить
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1282,6 +1282,123 @@ body {
   box-shadow: inset -3px 0 0 -1px color-mix(in srgb, var(--risk-outline) 55%, transparent);
 }
 
+/* ——— серый диапазон распределения (Resource Smoothing) ——— */
+
+.envelope-band .planned-band-fill {
+  border-color: color-mix(in srgb, var(--text-dim) 70%, transparent);
+  background: color-mix(in srgb, var(--text-dim) 14%, transparent);
+}
+
+.envelope-controls {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 3;
+}
+
+.envelope-handle {
+  cursor: ew-resize;
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  color: var(--text-dim);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.envelope-handle:hover {
+  color: var(--accent3);
+  border-color: var(--accent3);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: rgba(10, 20, 26, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.distribute-modal {
+  width: 340px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: 0 18px 60px var(--sticky-shadow);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.distribute-modal-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.distribute-modal-range {
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.distribute-modal-text {
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.distribute-role-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.distribute-role-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.distribute-role-label {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.distribute-role-row input {
+  width: 64px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.distribute-role-unit {
+  font-size: 11px;
+  color: var(--text-dim);
+  width: 28px;
+}
+
+.distribute-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* ——— панель загрузки ——— */
 
 .load-panel {
