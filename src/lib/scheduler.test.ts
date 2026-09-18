@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { Plan, Epic } from '../types';
 import { buildSprints, currentSprintIndex } from './calendar';
+import { computeLoad } from './load';
 import { defaultPipeline, pipelineForEpic, stageFloor, runScheduler } from './scheduler';
 
 describe('defaultPipeline', () => {
@@ -93,5 +94,21 @@ describe('runScheduler comfortable', () => {
     expect(byRole.design.from).toBeGreaterThanOrEqual(byRole.grooming.to);
     expect(byRole.midl.from).toBeGreaterThanOrEqual(byRole.design.to);
     expect(byRole.testing.from).toBeGreaterThanOrEqual(byRole.midl.to);
+  });
+
+  it('resolves midl overload by sliding later epics forward', () => {
+    const base = makePlan();
+    const mk = (id: string, from: number, to: number): Epic => ({
+      ...base.epics[0],
+      id,
+      segments: [{ id: `${id}-s`, role: 'midl', from, to, label: '', color: null, flag: null }],
+    });
+    const plan = { ...base, epics: [mk('e1', 30, 31), mk('e2', 30, 31), mk('e3', 30, 31)] };
+    const snap = runScheduler(plan, 'comfortable', { currentSprint: 30 });
+    const load = computeLoad({ ...plan, epics: snap.epics });
+    const midlCells = load.rows.filter((r) => r.role.id === 'midl').flatMap((r) => r.cells);
+    expect(midlCells.some((c) => c.status === 'over')).toBe(false);
+    const e3 = snap.epics.find((e) => e.id === 'e3')!;
+    expect(e3.segments[0].from).toBeGreaterThanOrEqual(31);
   });
 });

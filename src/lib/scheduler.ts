@@ -114,10 +114,16 @@ export function runScheduler(
       if (ownPrev.length) floor = Math.max(floor, Math.max(...ownPrev) + 1);
 
       const duration = segment.to - segment.from;
+      // Последний допустимый старт: to не должен выходить за горизонт
+      // (максимальный валидный индекс спринта — plan.sprints.length - 1).
+      const maxFrom = plan.sprints.length - 1 - duration;
       let from = floor;
       if (mode === 'comfortable') {
-        while (from + duration < plan.sprints.length && wouldOverload(working, epic, segment, from, from + duration)) from += 1;
+        while (from < maxFrom && wouldOverload(working, epic, segment, from, from + duration)) from += 1;
       }
+      // Если перегрузка сохраняется до самого горизонта, сегмент остаётся у края
+      // сетки: перегруз в этом случае неизбежен, за пределы горизонта не выходим.
+      from = Math.min(from, maxFrom);
       workingEpic.segments.push({ ...segment, from, to: from + duration });
     }
   }
