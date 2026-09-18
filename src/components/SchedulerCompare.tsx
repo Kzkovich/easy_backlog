@@ -31,7 +31,9 @@ export default function SchedulerCompare({
   onDiscard,
 }: Props) {
   const [draft, setDraft] = useState<Epic[]>(() => snapshot.epics);
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(snapshot.epics.map((e) => e.id)));
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(snapshot.epics.filter((e) => e.enabled !== false).map((e) => e.id))
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const draftPlan: Plan = useMemo(() => ({ ...plan, epics: draft }), [plan, draft]);

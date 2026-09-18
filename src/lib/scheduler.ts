@@ -65,6 +65,9 @@ export function distributeEpic(
   const pipeline = pipelineForEpic(plan, epic);
   const segments: Segment[] = [];
   const roleEnd: Record<RoleId, number> = {};
+  for (const s of epic.segments.filter((s) => s.from < from)) {
+    roleEnd[s.role] = Math.max(roleEnd[s.role] ?? Number.NEGATIVE_INFINITY, s.to);
+  }
   let prevStageEnds: number[] = [];
 
   for (const stage of pipeline.stages) {
@@ -111,7 +114,10 @@ export function runScheduler(
   const epics = plan.epics.map((e) => ({ ...e, segments: e.segments.filter((s) => s.from < cur) }));
   const pending: PendingSegment[] = [];
   for (const epic of plan.epics) {
-    if (epic.enabled === false) continue;
+    if (epic.enabled === false) {
+      epics.find((x) => x.id === epic.id)!.segments = epic.segments;
+      continue;
+    }
     if (targetIds && !targetIds.has(epic.id)) {
       // не перепланируем, но сегменты сохраняем как есть
       epics.find((x) => x.id === epic.id)!.segments = epic.segments;
@@ -174,7 +180,7 @@ export function runScheduler(
         while (from < maxFrom && wouldOverload(working, epic, segment, from, from + duration)) from += 1;
         // Если перегрузка сохраняется до самого горизонта, сегмент остаётся у края
         // сетки: перегруз в этом случае неизбежен, за пределы горизонта не выходим.
-        from = Math.min(from, maxFrom);
+        from = Math.max(floor, Math.min(from, maxFrom));
       } else {
         // emergency: сегмент ставится на floor безусловно (over разрешён), длительность
         // не сжимается. Guard не даёт опустить `from` ниже floor в вырожденном случае,

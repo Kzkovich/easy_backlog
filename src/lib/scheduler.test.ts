@@ -111,6 +111,42 @@ describe('runScheduler comfortable', () => {
     const e3 = snap.epics.find((e) => e.id === 'e3')!;
     expect(e3.segments[0].from).toBeGreaterThanOrEqual(31);
   });
+
+  it('preserves disabled epic future segments verbatim', () => {
+    const base = makePlan();
+    const disabled: Epic = {
+      ...base.epics[0],
+      id: 'e-disabled',
+      enabled: false,
+      segments: [
+        { id: 'sd1', role: 'grooming', from: 30, to: 32, label: '', color: null, flag: null },
+        { id: 'sd2', role: 'midl', from: 35, to: 40, label: '', color: null, flag: null },
+      ],
+    };
+    const plan = { ...base, epics: [...base.epics, disabled] };
+    const snap = runScheduler(plan, 'comfortable', { currentSprint: 30 });
+    const ed = snap.epics.find((e) => e.id === 'e-disabled')!;
+    expect(ed.segments).toEqual([
+      { id: 'sd1', role: 'grooming', from: 30, to: 32, label: '', color: null, flag: null },
+      { id: 'sd2', role: 'midl', from: 35, to: 40, label: '', color: null, flag: null },
+    ]);
+  });
+
+  it('never clamps from below the dependency floor (comfortable)', () => {
+    const base = makePlan();
+    const epic: Epic = {
+      ...base.epics[0],
+      id: 'e1',
+      segments: [
+        { id: 's1', role: 'design', from: 30, to: 35, label: '', color: null, flag: null },
+        { id: 's2', role: 'midl', from: 40, to: 100, label: '', color: null, flag: null },
+      ],
+    };
+    const plan = { ...base, epics: [epic] };
+    const snap = runScheduler(plan, 'comfortable', { currentSprint: 30 });
+    const midl = snap.epics[0].segments.find((s) => s.role === 'midl')!;
+    expect(midl.from).toBeGreaterThanOrEqual(35);
+  });
 });
 
 describe('distributeEpic', () => {
