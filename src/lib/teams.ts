@@ -1,4 +1,4 @@
-import type { Epic, PlannedSegment, Plan, RoleDef, Segment, Team } from '../types';
+import type { Epic, Plan, RoleDef, Segment, Team } from '../types';
 import { DEFAULT_ROLES } from './roles';
 
 // Палитра меток команд — по кругу, отличается от палитры ролей, чтобы легче различать.
@@ -73,6 +73,27 @@ function uniqueId(candidate: unknown, fallback: string, used: Set<string>): stri
   return id;
 }
 
+/** Плановый диапазон всей задачи: новый формат plannedFrom/plannedTo
+ *  либо миграция из старых по-ролевых plannedSegments (min from / max to). */
+function normalizePlannedRange(e: any, maxIndex: number): { plannedFrom?: number; plannedTo?: number } {
+  if (Number.isFinite(Number(e?.plannedFrom)) || Number.isFinite(Number(e?.plannedTo))) {
+    const range = normalizedRange({ from: e.plannedFrom, to: e.plannedTo }, maxIndex);
+    if (range) return { plannedFrom: range.from, plannedTo: range.to };
+    return {};
+  }
+  const legacy: any[] = Array.isArray(e?.plannedSegments) ? e.plannedSegments : [];
+  const ranges: { from: number; to: number }[] = [];
+  for (const s of legacy) {
+    const r = normalizedRange(s, maxIndex);
+    if (r) ranges.push(r);
+  }
+  if (ranges.length === 0) return {};
+  return {
+    plannedFrom: Math.min(...ranges.map((r) => r.from)),
+    plannedTo: Math.max(...ranges.map((r) => r.to)),
+  };
+}
+
 export function normalizePlan(raw: any): Plan {
   const rawTeams: any[] = raw.teams ?? [];
   const isLegacy = rawTeams.length > 0 && rawTeams.every((t) => typeof t.sprintBase !== 'number');
@@ -127,25 +148,14 @@ export function normalizePlan(raw: any): Plan {
         flag: segment.flag ?? null,
       }];
     });
-    const plannedSegments: PlannedSegment[] = (Array.isArray(rest.plannedSegments) ? rest.plannedSegments : []).flatMap(
-      (segment: any, index: number) => {
-        const range = normalizedRange(segment, maxSprintIndex);
-        if (!range || segment?.role == null) return [];
-        return [{
-          id: uniqueId(segment.id, `${epicId}-planned-${index + 1}`, usedIds),
-          role: String(segment.role),
-          ...range,
-          label: typeof segment.label === 'string' ? segment.label : '',
-        }];
-      }
-    );
+    const planned = normalizePlannedRange(rest, maxSprintIndex);
     return {
       ...rest,
       id: epicId,
       title: rest.title ?? epicId,
       teams: ids.filter((id) => teamIds.includes(id)),
       segments,
-      plannedSegments,
+      ...planned,
     };
   });
 

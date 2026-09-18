@@ -17,6 +17,8 @@ interface Props {
   isDragging: boolean;
   dragOffsetX: number | null;
   cutoffIndex: number;
+  overflowLeft: number;
+  overflowRight: number;
   onBodyPointerDown: (e: React.PointerEvent) => void;
   onLeftHandlePointerDown: (e: React.PointerEvent) => void;
   onRightHandlePointerDown: (e: React.PointerEvent) => void;
@@ -41,6 +43,8 @@ export default function SegmentBar({
   isDragging,
   dragOffsetX,
   cutoffIndex,
+  overflowLeft,
+  overflowRight,
   onBodyPointerDown,
   onLeftHandlePointerDown,
   onRightHandlePointerDown,
@@ -118,6 +122,12 @@ export default function SegmentBar({
         style={{ width: HANDLE_W }}
         onPointerDown={onRightHandlePointerDown}
       />
+      {overflowLeft > 0 && (
+        <span className="seg-overflow seg-overflow-left" style={{ width: overflowLeft }} aria-hidden="true" />
+      )}
+      {overflowRight > 0 && (
+        <span className="seg-overflow seg-overflow-right" style={{ width: overflowRight }} aria-hidden="true" />
+      )}
       {noteMarkers.map((n) => (
         <button
           key={n.sprintIndex}

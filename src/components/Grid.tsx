@@ -565,8 +565,28 @@ export default function Grid({
           const roleAddRow = showRoleRows && hiddenRoles.length > 0 ? rowCounter++ : null;
           const rollupRow = showRollup ? rowCounter++ : null;
 
+          const pf = epic.plannedFrom;
+          const pt = epic.plannedTo;
+          const plannedDisp = pf != null && pt != null ? toDisplayRange(pf, pt) : null;
+          const planFromDisp = plannedDisp?.from ?? null;
+          const planToDisp = plannedDisp?.to ?? null;
+          const anyOverflowLeft = pf != null && epic.segments.some((s) => s.from < pf);
+          const anyOverflowRight = pt != null && epic.segments.some((s) => s.to > pt);
+
           return (
             <div key={epic.id} style={{ display: 'contents' }}>
+              {plannedDisp && (
+                <div
+                  className={`planned-band${anyOverflowLeft ? ' overflow-left' : ''}${anyOverflowRight ? ' overflow-right' : ''}`}
+                  style={{ gridColumn: `2 / span ${n}`, gridRow: `${headerRow} / ${rowCounter}` }}
+                  aria-hidden="true"
+                >
+                  <div
+                    className="planned-band-fill"
+                    style={{ left: plannedDisp.from * colWidth, width: (plannedDisp.to - plannedDisp.from + 1) * colWidth }}
+                  />
+                </div>
+              )}
               <div
                 className={`cell label-cell epic-header-label${reorderState?.targetId === epic.id ? ' reorder-target' : ''}${isEpicDragging ? ' epic-dragging' : ''}`}
                 style={{ gridColumn: '1 / 2', gridRow: headerRow }}
@@ -693,30 +713,20 @@ export default function Grid({
                     aria-label={`${role.label}, фича «${epic.title}». Enter или пробел — добавить колбаску в ближайший свободный спринт`}
                     title="Двойной клик по свободному месту — добавить колбаску"
                   >
-                    {(epic.plannedSegments ?? [])
-                      .filter((p) => p.role === role.id)
-                      .map((p) => {
-                        const disp = toDisplayRange(p.from, p.to);
-                        if (!disp) return null;
-                        const left = disp.from * colWidth;
-                        const width = (disp.to - disp.from + 1) * colWidth;
-                        const planColor = roleColorOf(plan.roles, role.id);
-                        return (
-                          <div
-                            key={p.id}
-                            className="planned-ghost"
-                            style={{ left, width, ['--plan-color' as string]: planColor }}
-                            title={`План: ${p.label || role.label} · спринты ${p.from}–${p.to}`}
-                            aria-hidden="true"
-                          />
-                        );
-                      })}
                     {segs.map((seg) => {
                       const real = liveRealRange(epic, seg);
                       const disp = toDisplayRange(real.from, real.to);
                       if (!disp) return null;
                       const mergeLeft = segs.some((other) => other.id !== seg.id && liveRealRange(epic, other).to === real.from - 1);
                       const mergeRight = segs.some((other) => other.id !== seg.id && liveRealRange(epic, other).from === real.to + 1);
+                      const overflowLeft =
+                        planFromDisp != null && disp.from < planFromDisp
+                          ? (Math.min(disp.to, planFromDisp - 1) - disp.from + 1) * colWidth
+                          : 0;
+                      const overflowRight =
+                        planToDisp != null && disp.to > planToDisp
+                          ? (disp.to - Math.max(disp.from, planToDisp + 1) + 1) * colWidth
+                          : 0;
                       return (
                         <SegmentBar
                           key={seg.id}
@@ -733,6 +743,8 @@ export default function Grid({
                           isDragging={(livePreview?.type === 'segment' && livePreview.segmentId === seg.id) || !!isEpicDragging}
                           dragOffsetX={isEpicDragging ? epicDragOffsetPx : null}
                           cutoffIndex={cutoffIndex}
+                          overflowLeft={overflowLeft}
+                          overflowRight={overflowRight}
                           onBodyPointerDown={(e) => startSegmentMove(e, epic, seg)}
                           onLeftHandlePointerDown={(e) => startResizeLeft(e, epic, seg)}
                           onRightHandlePointerDown={(e) => startResizeRight(e, epic, seg)}

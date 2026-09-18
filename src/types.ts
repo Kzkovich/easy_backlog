@@ -75,13 +75,6 @@ export interface Segment {
 }
 
 /** Импортированный базовый план. Не участвует в расчёте загрузки и редактировании факта. */
-export interface PlannedSegment {
-  id: string;
-  role: RoleId;
-  from: number;
-  to: number;
-  label: string;
-}
 
 export interface EpicLink {
   title: string;
@@ -101,7 +94,8 @@ export interface Epic {
   notes: string;
   links: EpicLink[];
   segments: Segment[];
-  plannedSegments?: PlannedSegment[]; // отсутствует в старых планах; normalizePlan добавляет пустой список
+  plannedFrom?: number; // плановый старт всей задачи (спринт) — серый контур
+  plannedTo?: number; // плановый финиш всей задачи (спринт)
   visibleRoles?: RoleId[]; // какие роли показывать строками; undefined = все роли (обратная совместимость)
 }
 

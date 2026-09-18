@@ -1181,6 +1181,33 @@ body {
   outline: none;
 }
 
+.seg-overflow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(214, 31, 58, 0.34),
+    rgba(214, 31, 58, 0.34) 4px,
+    rgba(214, 31, 58, 0.15) 4px,
+    rgba(214, 31, 58, 0.15) 8px
+  );
+}
+
+.seg-overflow-left {
+  left: 0;
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+
+.seg-overflow-right {
+  right: 0;
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
 .lens-filter-defs {
   position: absolute;
   width: 0;
@@ -1224,15 +1251,30 @@ body {
   opacity: 0;
 }
 
-.planned-ghost {
-  position: absolute;
-  top: 1px;
-  bottom: 2px;
+.planned-band {
+  position: relative;
   z-index: 0;
   pointer-events: none;
+}
+
+.planned-band-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
   border-radius: 10px;
-  border: 1px dashed color-mix(in srgb, var(--plan-color, var(--text-dim)) 48%, transparent);
-  background: color-mix(in srgb, var(--plan-color, var(--text-dim)) 10%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--text-dim) 48%, transparent);
+  background: color-mix(in srgb, var(--text-dim) 8%, transparent);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.planned-band.overflow-left .planned-band-fill {
+  border-left-color: var(--risk-outline);
+  box-shadow: inset 3px 0 0 -1px color-mix(in srgb, var(--risk-outline) 55%, transparent);
+}
+
+.planned-band.overflow-right .planned-band-fill {
+  border-right-color: var(--risk-outline);
+  box-shadow: inset -3px 0 0 -1px color-mix(in srgb, var(--risk-outline) 55%, transparent);
 }
 
 /* ——— панель загрузки ——— */
@@ -2059,25 +2101,27 @@ body {
 .planned-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-
-.planned-row select {
-  flex: 1;
-  min-width: 0;
+  gap: 8px;
 }
 
 .planned-sprint-field {
+  flex: 1;
   flex-direction: row;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+}
+
+.planned-sprint-caption {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 
 .planned-sprint-field input {
   width: 46px;
 }
 
-.planned-sprint-field span {
+.planned-sprint-date {
   font-size: 10.5px;
   color: var(--text-dim);
   min-width: 26px;

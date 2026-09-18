@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { Epic, PlannedSegment, RoleDef, Segment, Sprint, Team } from '../types';
+import type { Epic, RoleDef, Segment, Sprint, Team } from '../types';
 import { matchRoleFromExcelLabel } from './roles';
 
 // Импорт из Excel — раздел 7 спеки. Лист "Планирование 2026".
@@ -198,7 +198,6 @@ export function parsePlanWorkbook(data: ArrayBuffer, sprints: Sprint[], teams: T
     }
 
     let segCounter = 0;
-    let plannedCounter = 0;
     const epicForClosures = currentEpic;
 
     const realTracker = makeRunTracker((from, to, texts, risk) => {
@@ -214,17 +213,9 @@ export function parsePlanWorkbook(data: ArrayBuffer, sprints: Sprint[], teams: T
       };
       epicForClosures.segments.push(seg);
     });
-    const plannedTracker = makeRunTracker((from, to, texts) => {
-      plannedCounter += 1;
-      const seg: PlannedSegment = {
-        id: `${epicForClosures.id}-${role}-planned-${plannedCounter}`,
-        role,
-        from,
-        to,
-        label: texts.filter(Boolean).join(' ').trim(),
-      };
-      epicForClosures.plannedSegments = epicForClosures.plannedSegments ?? [];
-      epicForClosures.plannedSegments.push(seg);
+    const plannedTracker = makeRunTracker((from, to) => {
+      epicForClosures.plannedFrom = Math.min(epicForClosures.plannedFrom ?? from, from);
+      epicForClosures.plannedTo = Math.max(epicForClosures.plannedTo ?? to, to);
     });
 
     for (let i = 0; i < sortedCols.length; i++) {
