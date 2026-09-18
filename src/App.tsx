@@ -308,6 +308,9 @@ export default function App() {
           bgPattern={bgPattern}
           onBgPattern={setBgPattern}
           onImport={() => fileInputRef.current?.click()}
+          pipeline={plan?.settings.pipeline}
+          roles={plan?.roles ?? []}
+          onPipeline={(p) => updatePlan((pl) => ({ ...pl, settings: { ...pl.settings, pipeline: p } }))}
         />
         <div className="account-menu" title={`Вы вошли как ${user.username}`}>
           <span className="account-avatar">{user.username.slice(0, 1).toUpperCase()}</span>

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Pipeline, RoleDef } from '../types';
+import PipelineEditor from './PipelineEditor';
 
 export type ZoomLevel = 'compact' | 'normal';
 export type Theme = 'light' | 'ceramic' | 'dark' | 'auto';
@@ -14,6 +16,9 @@ interface Props {
   bgPattern: BgPattern;
   onBgPattern: (p: BgPattern) => void;
   onImport: () => void;
+  pipeline?: Pipeline;
+  roles: RoleDef[];
+  onPipeline: (p: Pipeline) => void;
 }
 
 interface SegProps<T extends string> {
@@ -35,8 +40,9 @@ function Seg<T extends string>({ value, options, onChange, label }: SegProps<T>)
   );
 }
 
-export default function SettingsMenu({ zoom, onZoom, hidePast, onHidePast, theme, onTheme, bgPattern, onBgPattern, onImport }: Props) {
+export default function SettingsMenu({ zoom, onZoom, hidePast, onHidePast, theme, onTheme, bgPattern, onBgPattern, onImport, pipeline, roles, onPipeline }: Props) {
   const [open, setOpen] = useState(false);
+  const [showPipeline, setShowPipeline] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -126,6 +132,17 @@ export default function SettingsMenu({ zoom, onZoom, hidePast, onHidePast, theme
           >
             Импорт из Excel…
           </button>
+          <div className="settings-divider" />
+          <button
+            className="settings-action"
+            onClick={() => setShowPipeline((v) => !v)}
+            aria-expanded={showPipeline}
+          >
+            Пайплайн этапов…
+          </button>
+          {showPipeline && pipeline && (
+            <PipelineEditor pipeline={pipeline} roles={roles} onChange={onPipeline} />
+          )}
         </div>
       )}
     </div>
