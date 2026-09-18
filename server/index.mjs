@@ -15,7 +15,10 @@ const USER_DATA_DIR = path.join(DATA_DIR, 'users');
 const MAX_BACKUPS = 50;
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-const PORT = Number(process.env.PORT || 5175);
+// Не читаем общий PORT: некоторые обёртки для запуска дев-сервера (например,
+// превью в Claude Code) сами выставляют PORT под Vite, и он утекает в этот
+// процесс через `concurrently`, кладя API-сервер на тот же порт, что и Vite.
+const PORT = Number(process.env.KOLBASKI_API_PORT || 5175);
 
 const sessions = new Map();
 const attempts = new Map();

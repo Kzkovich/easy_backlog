@@ -467,7 +467,7 @@ export default function Grid({
       <div className="grid" style={{ ['--n-cols' as any]: n, ['--col-width' as any]: `${colWidth}px` }}>
         <svg className="lens-filter-defs" aria-hidden="true" focusable="false" width="0" height="0">
           <defs>
-            <filter id="kolbaski-lens" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+            <filter id="kolbaski-lens" x="-40%" y="-40%" width="180%" height="180%" colorInterpolationFilters="sRGB">
               <feTurbulence type="fractalNoise" baseFrequency="0.012 0.012" numOctaves="2" seed="11" result="noise" />
               <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G" />
             </filter>
