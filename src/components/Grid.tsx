@@ -20,6 +20,7 @@ interface Props {
   currentSprint: number;
   load: LoadResult;
   highlight: LoadHighlight | null;
+  highlightSegments?: Set<string>;
   scrollRef: React.RefObject<HTMLDivElement>;
   onHScroll: (x: number) => void;
   updatePlan: (fn: (p: Plan) => Plan) => void;
@@ -94,6 +95,7 @@ export default function Grid({
   currentSprint,
   load,
   highlight,
+  highlightSegments,
   scrollRef,
   onHScroll,
   updatePlan,
@@ -740,6 +742,7 @@ export default function Grid({
                           mergeRight={mergeRight}
                           status={segmentLoadStatus(epic, seg)}
                           spotlight={isSpotlit(epic, seg)}
+                          highlighted={highlightSegments?.has(seg.id) ?? false}
                           isDragging={(livePreview?.type === 'segment' && livePreview.segmentId === seg.id) || !!isEpicDragging}
                           dragOffsetX={isEpicDragging ? epicDragOffsetPx : null}
                           cutoffIndex={cutoffIndex}

@@ -1081,6 +1081,11 @@ body {
     0 0 22px var(--segment-glow, transparent);
 }
 
+.segment-bar.moved {
+  outline: 2px solid var(--accent3);
+  outline-offset: 1px;
+}
+
 .segment-bar.management-bar {
   background: var(--grad);
   color: #fff;

@@ -14,6 +14,7 @@ interface Props {
   mergeRight: boolean;
   status: LoadStatus | null;
   spotlight: boolean;
+  highlighted?: boolean;
   isDragging: boolean;
   dragOffsetX: number | null;
   cutoffIndex: number;
@@ -40,6 +41,7 @@ export default function SegmentBar({
   mergeRight,
   status,
   spotlight,
+  highlighted,
   isDragging,
   dragOffsetX,
   cutoffIndex,
@@ -80,6 +82,7 @@ export default function SegmentBar({
   if (segment.flag === 'risk') classes.push('risk');
   if (status) classes.push(`overlap-${status}`);
   if (spotlight) classes.push('spotlight');
+  if (highlighted) classes.push('moved');
   if (isDragging) classes.push('dragging');
   if (mergeLeft) classes.push('merge-left');
   if (mergeRight) classes.push('merge-right');
