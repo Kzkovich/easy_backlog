@@ -1,5 +1,6 @@
 import type { Epic, Plan, RoleDef, Segment, Team } from '../types';
 import { DEFAULT_ROLES } from './roles';
+import { defaultPipeline } from './scheduler';
 
 // Палитра меток команд — по кругу, отличается от палитры ролей, чтобы легче различать.
 const TEAM_PALETTE = ['#0AA2C0', '#F97316', '#7C3AED', '#16A34A', '#DB2777', '#0EA5E9', '#CA8A04', '#DC2626'];
@@ -173,6 +174,7 @@ export function normalizePlan(raw: any): Plan {
         okPerPerson: thresholds.okPerPerson ?? 2,
         okPerPersonShared: thresholds.okPerPersonShared ?? 1,
       },
+      pipeline: raw.settings?.pipeline ?? defaultPipeline(),
     },
   };
 }
