@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Plan, Sprint } from '../types';
-import { SCOPE_TITLE, switchingLossPct, type LoadResult, type LoadRow, type LoadScope } from '../lib/load';
+import { SHARED_SCOPE, scopeShort, scopeTitle, switchingLossPct, type LoadResult, type LoadRow, type LoadScope } from '../lib/load';
+import { sprintNumbersLabel } from '../lib/teams';
 
 export interface LoadHighlight {
   role: string;
@@ -19,13 +20,10 @@ interface Props {
   highlight: LoadHighlight | null;
   onHighlight: (h: LoadHighlight | null) => void;
   onOpenTeams: () => void;
-  onClose: () => void;
 }
 
-type Unit = 'tasks' | 'perPerson';
-
 function fmt(n: number): string {
-  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+  return Number.isInteger(n) ? String(n) : n.toFixed(1).replace('.', ',');
 }
 
 function plural(n: number, one: string, few: string, many: string): string {
@@ -37,8 +35,10 @@ function plural(n: number, one: string, few: string, many: string): string {
 }
 
 function tasksWord(n: number): string {
-  return plural(n, 'задача', 'задачи', 'задач');
+  return plural(n, 'фича', 'фичи', 'фич');
 }
+
+const OPEN_KEY = 'kolbaski-load-open';
 
 export default function LoadPanel({
   plan,
@@ -50,20 +50,25 @@ export default function LoadPanel({
   highlight,
   onHighlight,
   onOpenTeams,
-  onClose,
 }: Props) {
-  const [unit, setUnit] = useState<Unit>('tasks');
+  const [open, setOpen] = useState(() => localStorage.getItem(OPEN_KEY) !== '0');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const n = visibleSprints.length;
 
+  function toggleOpen() {
+    setOpen((v) => {
+      localStorage.setItem(OPEN_KEY, v ? '0' : '1');
+      return !v;
+    });
+  }
+
   const grouped = useMemo(() => {
-    const scopes: LoadScope[] = ['AMCLCT', 'JHD', 'SHARED'];
+    const scopes: LoadScope[] = [...plan.teams.map((t) => t.id), SHARED_SCOPE];
     return scopes
       .map((scope) => ({ scope, rows: load.rows.filter((r) => r.scope === scope) }))
       .filter((g) => g.rows.length > 0);
-  }, [load.rows]);
+  }, [load.rows, plan.teams]);
 
-  // Что перегружено прямо сейчас
   const alerts = useMemo(() => {
     if (currentSprint < 0) return [];
     const out: { text: string; status: 'over' | 'tight' }[] = [];
@@ -71,15 +76,15 @@ export default function LoadPanel({
       const cell = row.cells[currentSprint];
       if (!cell) continue;
       if (cell.status === 'over' || cell.status === 'nocap' || cell.status === 'tight') {
-        const where = row.scope === 'SHARED' ? 'общие' : row.scope;
+        const who = cell.capacity > 0 ? `${fmt(cell.capacity)} чел.` : 'никого нет';
         out.push({
-          text: `${row.role.label} · ${where} — ${cell.demand} ${tasksWord(cell.demand)} на ${fmt(cell.capacity)} чел.`,
+          text: `${row.role.label} (${scopeShort(plan, row.scope)}): ${cell.demand} ${tasksWord(cell.demand)} на ${who}`,
           status: cell.status === 'tight' ? 'tight' : 'over',
         });
       }
     }
     return out.sort((a, b) => (a.status === b.status ? 0 : a.status === 'over' ? -1 : 1));
-  }, [load.rows, currentSprint]);
+  }, [load.rows, currentSprint, plan]);
 
   function toggle(key: string) {
     setExpanded((prev) => {
@@ -92,153 +97,157 @@ export default function LoadPanel({
 
   function cellTitle(row: LoadRow, sprintIdx: number): string {
     const cell = row.cells[sprintIdx];
-    const s = plan.sprints[sprintIdx];
-    const lines = [`${row.role.label} · ${SCOPE_TITLE[row.scope]}`, `Спринт ${s.jhd}/${s.amclct}`];
+    const lines = [`${row.role.label} · ${scopeTitle(plan, row.scope)}`, `Спринт ${sprintNumbersLabel(plan.teams, sprintIdx)}`, ''];
     if (!row.tracked) {
-      lines.push(`${cell.demand} ${tasksWord(cell.demand)} (ёмкость не считаем — чужая команда)`);
+      lines.push(`В работе ${cell.demand} ${tasksWord(cell.demand)}. Людей не считаем — это чужая команда.`);
       return lines.join('\n');
     }
-    lines.push(`Задач: ${cell.demand}`);
-    lines.push(`Людей: ${fmt(cell.capacity)} (${cell.headcount} чел.)`);
-    if (cell.capacity > 0) {
-      lines.push(`На человека: ${fmt(cell.perPerson)}`);
+    lines.push(`В работе одновременно: ${cell.demand} ${tasksWord(cell.demand)}`);
+    lines.push(`Людей в спринте: ${fmt(cell.capacity)}`);
+    if (cell.capacity > 0 && cell.demand > 0) {
+      lines.push(`На одного человека: ${fmt(cell.perPerson)}`);
       const loss = switchingLossPct(cell.perPerson);
-      if (loss > 0) lines.push(`Потери на переключение контекста: ~${loss}%`);
+      if (loss > 0) lines.push(`≈${loss}% времени уходит на переключение между задачами`);
     } else if (cell.demand > 0) {
-      lines.push('Некому делать: людей нет или все в отпуске');
+      lines.push('Делать некому: людей нет или все в отпуске');
     }
     const titles = cell.epicIds
       .map((id) => plan.epics.find((e) => e.id === id)?.title)
       .filter(Boolean)
       .slice(0, 6);
-    if (titles.length) lines.push('', ...titles.map((t) => `• ${t}`));
+    if (titles.length) lines.push('', ...titles.map((t) => `• ${t}`), '', 'Клик — подсветить эти колбаски');
     return lines.join('\n');
   }
 
   return (
-    <div className="load-panel">
+    <div className={`load-panel${open ? '' : ' collapsed'}`}>
       <div className="load-panel-header">
-        <span className="load-panel-title">Загрузка команд</span>
-        <div className="zoom-group">
-          <button className={unit === 'tasks' ? 'active' : ''} onClick={() => setUnit('tasks')}>
-            задачи
-          </button>
-          <button className={unit === 'perPerson' ? 'active' : ''} onClick={() => setUnit('perPerson')}>
-            на человека
-          </button>
-        </div>
+        <button className="load-toggle" onClick={toggleOpen} title={open ? 'Свернуть' : 'Развернуть'}>
+          <span className={`collapse-arrow${open ? '' : ' collapsed'}`}>▾</span>
+          <span className="load-panel-title">Загрузка</span>
+        </button>
+
         <div className="load-alerts">
           {currentSprint < 0 ? null : alerts.length === 0 ? (
-            <span className="load-alert-ok">в текущем спринте перегрузов нет</span>
+            <span className="load-alert-ok">сейчас перегрузов нет</span>
           ) : (
             <>
               <span>сейчас:</span>
-              {alerts.slice(0, 4).map((a, i) => (
+              {alerts.slice(0, 3).map((a, i) => (
                 <span key={i} className={`load-alert-chip${a.status === 'tight' ? ' tight' : ''}`}>
                   {a.text}
                 </span>
               ))}
-              {alerts.length > 4 && <span>и ещё {alerts.length - 4}</span>}
+              {alerts.length > 3 && <span>+ ещё {alerts.length - 3}</span>}
             </>
           )}
         </div>
+
         <div className="spacer" style={{ flex: 1 }} />
+
+        {open && (
+          <div className="load-legend" title="Цвет показывает, сколько фич одновременно приходится на одного человека">
+            <span>на человека:</span>
+            <span className="legend-item ok">до 1</span>
+            <span className="legend-item tight">2</span>
+            <span className="legend-item over">3+</span>
+          </div>
+        )}
         {highlight && (
           <button className="btn small" onClick={() => onHighlight(null)}>
             снять подсветку
           </button>
         )}
         <button className="btn small" onClick={onOpenTeams}>
-          Команды и люди
-        </button>
-        <button className="btn small" onClick={onClose}>
-          скрыть
+          Состав команд
         </button>
       </div>
 
-      <div className="load-scroll" ref={scrollRef}>
-        <div className="load-grid" style={{ ['--n-cols' as any]: n, ['--col-width' as any]: `${colWidth}px` }}>
-          {grouped.map((group) => (
-            <div key={group.scope} style={{ display: 'contents' }}>
-              <div className="load-scope-row">{SCOPE_TITLE[group.scope]}</div>
-              {group.rows.map((row) => {
-                const isOpen = expanded.has(row.key);
-                return (
-                  <div key={row.key} style={{ display: 'contents' }}>
-                    <div className="load-label role" onClick={() => toggle(row.key)} title="Показать людей">
-                      <span className="role-dot" style={{ background: row.role.color }} />
-                      <span className={`collapse-arrow${isOpen ? '' : ' collapsed'}`}>▾</span>
-                      <span className="role-label-text">{row.role.label}</span>
-                      <span className="load-cap">
-                        {row.tracked ? `${fmt(row.cells[0]?.capacity ?? 0)} чел.` : 'чужая ёмкость'}
-                      </span>
-                    </div>
-                    {visibleSprints.map((s) => {
-                      const cell = row.cells[s.index];
-                      const value = !row.tracked
-                        ? cell.demand
-                        : unit === 'tasks'
-                          ? cell.demand
-                          : cell.capacity > 0
-                            ? cell.perPerson
-                            : cell.demand;
-                      const isHot =
-                        highlight &&
-                        highlight.role === row.role.id &&
-                        highlight.scope === row.scope &&
-                        highlight.sprintIndex === s.index;
-                      return (
-                        <div
-                          key={s.index}
-                          className={`load-cell ${cell.status}${s.index === currentSprint ? ' current-col' : ''}${isHot ? ' spotlight' : ''}`}
-                          title={cellTitle(row, s.index)}
-                          onClick={() =>
-                            cell.demand > 0
-                              ? onHighlight({ role: row.role.id, scope: row.scope, sprintIndex: s.index, epicIds: cell.epicIds })
-                              : onHighlight(null)
-                          }
-                        >
-                          {cell.demand === 0 ? '·' : fmt(value)}
-                        </div>
-                      );
-                    })}
-
-                    {isOpen &&
-                      row.persons.map((pl) => (
-                        <div key={pl.person.id} style={{ display: 'contents' }}>
-                          <div className="load-label person">
-                            <span className="role-label-text">{pl.person.name}</span>
-                            <span className="load-cap">{fmt(pl.share)}</span>
+      {open && (
+        <div className="load-scroll" ref={scrollRef}>
+          <div className="load-grid" style={{ ['--n-cols' as any]: n, ['--col-width' as any]: `${colWidth}px` }}>
+            {grouped.map((group) => (
+              <div key={group.scope} style={{ display: 'contents' }}>
+                <div className="load-scope-row">{scopeTitle(plan, group.scope)}</div>
+                {group.rows.map((row) => {
+                  const isOpen = expanded.has(row.key);
+                  return (
+                    <div key={row.key} style={{ display: 'contents' }}>
+                      <div className="load-label role" onClick={() => toggle(row.key)} title="Показать людей">
+                        <span className="role-dot" style={{ background: row.role.color }} />
+                        <span className={`collapse-arrow${isOpen ? '' : ' collapsed'}`}>▾</span>
+                        <span className="role-label-text">{row.role.label}</span>
+                        <span className="load-cap">{row.tracked ? `${fmt(row.nominalCapacity)} чел.` : 'чужая ёмкость'}</span>
+                      </div>
+                      {visibleSprints.map((s) => {
+                        const cell = row.cells[s.index];
+                        const showPer = row.tracked && cell.demand > 0 && cell.capacity > 0 && cell.capacity !== 1;
+                        const isHot =
+                          highlight &&
+                          highlight.role === row.role.id &&
+                          highlight.scope === row.scope &&
+                          highlight.sprintIndex === s.index;
+                        return (
+                          <div
+                            key={s.index}
+                            className={`load-cell ${cell.status}${s.index === currentSprint ? ' current-col' : ''}${isHot ? ' hot' : ''}`}
+                            title={cellTitle(row, s.index)}
+                            onClick={() =>
+                              cell.demand > 0
+                                ? onHighlight({ role: row.role.id, scope: row.scope, sprintIndex: s.index, epicIds: cell.epicIds })
+                                : onHighlight(null)
+                            }
+                          >
+                            {cell.demand === 0 ? (
+                              <span className="load-zero">·</span>
+                            ) : (
+                              <>
+                                <span className="load-main">{cell.demand}</span>
+                                {showPer && <span className="load-per">по {fmt(cell.perPerson)}</span>}
+                                {row.tracked && cell.capacity === 0 && <span className="load-per">нет людей</span>}
+                              </>
+                            )}
                           </div>
-                          {visibleSprints.map((s) => {
-                            const pc = pl.cells[s.index];
-                            const okMax = row.shared
-                              ? plan.settings?.thresholds?.okPerPersonShared ?? 1
-                              : plan.settings?.thresholds?.okPerPerson ?? 2;
-                            let cls = '';
-                            if (pc.absent) cls = 'absent';
-                            else if (pc.tasks === 0) cls = 'free';
-                            else if (pc.tasks > okMax) cls = 'over';
-                            else if (pc.tasks > 1) cls = 'tight';
-                            return (
-                              <div
-                                key={s.index}
-                                className={`person-cell ${cls}`}
-                                title={pc.absent ? 'Отпуск' : `${fmt(pc.tasks)} ${tasksWord(Math.round(pc.tasks))}`}
-                              >
-                                {pc.absent ? '×' : pc.tasks === 0 ? '·' : fmt(pc.tasks)}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ))}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+                        );
+                      })}
+
+                      {isOpen &&
+                        row.persons.map((pl) => (
+                          <div key={pl.person.id} style={{ display: 'contents' }}>
+                            <div className="load-label person">
+                              <span className="role-label-text">{pl.person.name}</span>
+                              <span className="load-cap">{fmt(pl.share)}</span>
+                            </div>
+                            {visibleSprints.map((s) => {
+                              const pc = pl.cells[s.index];
+                              const okMax = row.shared
+                                ? plan.settings.thresholds.okPerPersonShared
+                                : plan.settings.thresholds.okPerPerson;
+                              let cls = '';
+                              if (pc.absent) cls = 'absent';
+                              else if (pc.tasks === 0) cls = 'free';
+                              else if (pc.tasks > okMax) cls = 'over';
+                              else if (pc.tasks > 1) cls = 'tight';
+                              return (
+                                <div
+                                  key={s.index}
+                                  className={`person-cell ${cls}`}
+                                  title={pc.absent ? 'Отпуск' : pc.tasks === 0 ? 'Свободен' : `${fmt(pc.tasks)} ${tasksWord(Math.round(pc.tasks))}`}
+                                >
+                                  {pc.absent ? 'отп.' : pc.tasks === 0 ? '·' : fmt(pc.tasks)}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

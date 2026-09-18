@@ -85,8 +85,8 @@ export function buildSprints(horizonSprints = 80): Sprint[] {
     const dateTo = addDaysIso(dateFrom, 13);
     const next: Sprint = {
       index: sprints.length,
-      jhd: last.jhd + 1,
-      amclct: last.amclct + 1,
+      jhd: (last.jhd ?? 0) + 1,
+      amclct: (last.amclct ?? 0) + 1,
       dateFrom,
       dateTo,
       quarter: quarterOf(new Date(dateFrom + 'T00:00:00Z')),
@@ -96,11 +96,6 @@ export function buildSprints(horizonSprints = 80): Sprint[] {
     last = next;
   }
   return sprints;
-}
-
-export function findSprintIndexByAmclctNumber(sprints: Sprint[], amclct: number): number | null {
-  const s = sprints.find((x) => x.amclct === amclct);
-  return s ? s.index : null;
 }
 
 export function freezeIndex(sprints: Sprint[]): number | null {

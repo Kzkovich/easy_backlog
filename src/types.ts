@@ -1,6 +1,6 @@
 // Модель данных «Колбасок» — см. PROMPT-планировщик.md, раздел 4.
 
-export type TeamId = 'AMCLCT' | 'JHD';
+export type TeamId = string;
 
 export interface SprintFlags {
   freeze?: boolean;
@@ -10,18 +10,20 @@ export interface SprintFlags {
 
 export interface Sprint {
   index: number; // порядковый индекс, источник истины для положения на сетке
-  jhd: number; // номер спринта у Johnny Debt
-  amclct: number; // номер спринта у AM Collection
   dateFrom: string; // ISO yyyy-mm-dd
   dateTo: string; // ISO yyyy-mm-dd
   quarter: string; // например "Q4 2025"
   flags: SprintFlags;
+  // Устаревшее: номера спринтов теперь считаются от Team.sprintBase.
+  jhd?: number;
+  amclct?: number;
 }
 
 export interface Team {
   id: TeamId;
   name: string;
   shortName: string;
+  sprintBase: number; // номер спринта этой команды в календарном спринте с индексом 0
 }
 
 export type RoleId =
@@ -44,7 +46,7 @@ export interface RoleDef {
   color: string;
   order: number;
   capacityTracked: boolean; // считаем ли загрузку по этой роли
-  shared: boolean; // true = один человек на обе команды (доля 0,5)
+  shared: boolean; // по умолчанию совмещённая роль, пока в составе нет людей
 }
 
 export interface PersonAllocation {
@@ -59,8 +61,6 @@ export interface Person {
   allocations: PersonAllocation[];
   absences: number[]; // индексы спринтов отсутствия
 }
-
-export type EpicTeam = 'AMCLCT' | 'JHD' | 'BOTH';
 
 export type EpicStatus =
   | 'бэклог'
@@ -94,7 +94,7 @@ export interface EpicLink {
 export interface Epic {
   id: string;
   title: string;
-  team: EpicTeam;
+  teams: TeamId[]; // одна или несколько команд
   enabled: boolean;
   status: EpicStatus;
   effectYear: number | null;

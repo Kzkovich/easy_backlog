@@ -784,14 +784,16 @@
   ],
   "teams": [
     {
-      "id": "AMCLCT",
-      "name": "AM Collection",
-      "shortName": "AMCLCT"
-    },
-    {
       "id": "JHD",
       "name": "Johnny Debt",
-      "shortName": "JHD"
+      "shortName": "JHD",
+      "sprintBase": 10
+    },
+    {
+      "id": "AMCLCT",
+      "name": "AM Collection",
+      "shortName": "AMCLCT",
+      "sprintBase": 70
     }
   ],
   "people": [
@@ -982,7 +984,9 @@
     {
       "id": "epic-1",
       "title": "AMCLCT. Витрина залогового имущества",
-      "team": "AMCLCT",
+      "teams": [
+        "AMCLCT"
+      ],
       "enabled": true,
       "status": "разработка",
       "effectYear": 45000000,
@@ -1060,7 +1064,9 @@
     {
       "id": "epic-2",
       "title": "JHD. Предмет залога. Витрина",
-      "team": "JHD",
+      "teams": [
+        "JHD"
+      ],
       "enabled": true,
       "status": "раскатка",
       "effectYear": 30000000,
@@ -1120,7 +1126,9 @@
     {
       "id": "epic-3",
       "title": "AMCLCT. Автоматизация звонков",
-      "team": "AMCLCT",
+      "teams": [
+        "AMCLCT"
+      ],
       "enabled": true,
       "status": "разработка",
       "effectYear": null,
@@ -1162,7 +1170,9 @@
     {
       "id": "epic-4",
       "title": "JHD. ЕК интеграция скоринга",
-      "team": "JHD",
+      "teams": [
+        "JHD"
+      ],
       "enabled": true,
       "status": "тест",
       "effectYear": 15000000,

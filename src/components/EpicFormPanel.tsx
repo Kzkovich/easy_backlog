@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import type { Epic, EpicStatus, EpicTeam, EffectKind } from '../types';
+import type { Epic, EpicStatus, EffectKind, Team, TeamId } from '../types';
 
 interface Props {
   epic: Epic | null; // null = создание новой фичи
+  teams: Team[];
+  defaultTeamIds: TeamId[];
   onSave: (epic: Epic) => void;
   onDelete?: () => void;
   onClose: () => void;
@@ -15,9 +17,9 @@ function makeId() {
   return `epic-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export default function EpicFormPanel({ epic, onSave, onDelete, onClose }: Props) {
+export default function EpicFormPanel({ epic, teams, defaultTeamIds, onSave, onDelete, onClose }: Props) {
   const [title, setTitle] = useState(epic?.title ?? '');
-  const [team, setTeam] = useState<EpicTeam>(epic?.team ?? 'AMCLCT');
+  const [teamIds, setTeamIds] = useState<TeamId[]>(epic?.teams ?? defaultTeamIds);
   const [status, setStatus] = useState<EpicStatus>(epic?.status ?? 'бэклог');
   const [effectYear, setEffectYear] = useState(epic?.effectYear?.toString() ?? '');
   const [effect2026, setEffect2026] = useState(epic?.effect2026?.toString() ?? '');
@@ -30,9 +32,10 @@ export default function EpicFormPanel({ epic, onSave, onDelete, onClose }: Props
   function handleSave() {
     if (!title.trim()) return;
     const result: Epic = {
+      ...epic,
       id: epic?.id ?? makeId(),
       title: title.trim(),
-      team,
+      teams: teams.map((t) => t.id).filter((id) => teamIds.includes(id)),
       enabled: epic?.enabled ?? true,
       status,
       effectYear: effectYear.trim() ? Number(effectYear) : null,
@@ -59,14 +62,23 @@ export default function EpicFormPanel({ epic, onSave, onDelete, onClose }: Props
           Название
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Например: JHD. Витрина…" autoFocus />
         </label>
-        <label>
-          Команда
-          <select value={team} onChange={(e) => setTeam(e.target.value as EpicTeam)}>
-            <option value="AMCLCT">AM Collection</option>
-            <option value="JHD">Johnny Debt</option>
-            <option value="BOTH">Обе команды</option>
-          </select>
-        </label>
+        <div className="field-group">
+          <span className="field-label">Команды</span>
+          <div className="team-checks">
+            {teams.map((t) => (
+              <label key={t.id} className={`team-check${teamIds.includes(t.id) ? ' on' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={teamIds.includes(t.id)}
+                  onChange={(e) =>
+                    setTeamIds((prev) => (e.target.checked ? [...prev, t.id] : prev.filter((id) => id !== t.id)))
+                  }
+                />
+                {t.name}
+              </label>
+            ))}
+          </div>
+        </div>
         <label>
           Статус
           <select value={status} onChange={(e) => setStatus(e.target.value as EpicStatus)}>

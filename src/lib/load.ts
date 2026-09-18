@@ -1,5 +1,6 @@
 import type { Person, Plan, RoleDef, RoleId, TeamId } from '../types';
 import { ROLE_BY_ID, ROLE_DEFS } from './roles';
+import { teamName } from './teams';
 
 // Модель загрузки.
 //
@@ -14,7 +15,8 @@ import { ROLE_BY_ID, ROLE_DEFS } from './roles';
 // перегруз. Для совмещённых людей (0,5 на две команды) порог строже: они уже
 // переключаются между командами, поэтому вторая параллельная задача — уже красный.
 
-export type LoadScope = TeamId | 'SHARED';
+export const SHARED_SCOPE = 'SHARED';
+export type LoadScope = TeamId; // id команды или SHARED_SCOPE
 export type LoadStatus = 'idle' | 'ok' | 'tight' | 'over' | 'nocap' | 'untracked';
 
 const WEINBERG_EFFICIENCY = [1, 1, 0.8, 0.6, 0.4, 0.2];
@@ -51,6 +53,7 @@ export interface LoadRow {
   shared: boolean;
   tracked: boolean;
   people: Person[];
+  nominalCapacity: number; // без учёта отпусков
   cells: LoadCell[];
   persons: PersonLoad[];
 }
@@ -65,21 +68,21 @@ export function loadKey(role: string, scope: LoadScope, sprintIndex: number): st
 }
 
 function personShareIn(p: Person, scope: LoadScope): number {
-  if (scope === 'SHARED') return p.allocations.reduce((acc, a) => acc + a.share, 0);
+  if (scope === SHARED_SCOPE) return p.allocations.reduce((acc, a) => acc + a.share, 0);
   return p.allocations.filter((a) => a.team === scope).reduce((acc, a) => acc + a.share, 0);
 }
 
-/** Роль считается совмещённой, если хотя бы один человек работает на обе команды. */
+/** Роль совмещённая, если хотя бы один человек этой роли работает на несколько команд. */
 export function isSharedRole(plan: Plan, roleId: RoleId): boolean {
+  if (plan.teams.length < 2) return false;
   const people = plan.people.filter((p) => p.role === roleId);
   if (people.length === 0) return ROLE_BY_ID[roleId]?.shared ?? false;
   return people.some((p) => new Set(p.allocations.filter((a) => a.share > 0).map((a) => a.team)).size > 1);
 }
 
-export function scopesForEpicRole(plan: Plan, epicTeam: 'AMCLCT' | 'JHD' | 'BOTH', roleId: RoleId): LoadScope[] {
-  if (isSharedRole(plan, roleId)) return ['SHARED'];
-  if (epicTeam === 'BOTH') return ['AMCLCT', 'JHD'];
-  return [epicTeam];
+export function scopesForEpicRole(plan: Plan, epicTeams: TeamId[], roleId: RoleId): LoadScope[] {
+  if (isSharedRole(plan, roleId)) return [SHARED_SCOPE];
+  return epicTeams;
 }
 
 function statusFor(demand: number, capacity: number, okMax: number, tracked: boolean): LoadStatus {
@@ -102,7 +105,7 @@ export function computeLoad(plan: Plan): LoadResult {
   for (const epic of plan.epics) {
     if (epic.enabled === false) continue;
     for (const seg of epic.segments) {
-      const scopes = scopesForEpicRole(plan, epic.team, seg.role);
+      const scopes = scopesForEpicRole(plan, epic.teams, seg.role);
       for (let s = seg.from; s <= seg.to; s++) {
         if (s < 0 || s >= sprintCount) continue;
         for (const scope of scopes) {
@@ -123,7 +126,7 @@ export function computeLoad(plan: Plan): LoadResult {
 
   for (const role of ROLE_DEFS) {
     const shared = isSharedRole(plan, role.id);
-    const scopes: LoadScope[] = shared ? ['SHARED'] : ['AMCLCT', 'JHD'];
+    const scopes: LoadScope[] = shared ? [SHARED_SCOPE] : plan.teams.map((t) => t.id);
 
     for (const scope of scopes) {
       const people = plan.people.filter((p) => p.role === role.id && personShareIn(p, scope) > 0);
@@ -167,15 +170,20 @@ export function computeLoad(plan: Plan): LoadResult {
           };
         });
 
-      rows.push({ key: `${role.id}|${scope}`, role, scope, shared, tracked, people, cells, persons });
+      const nominalCapacity = people.reduce((acc, p) => acc + personShareIn(p, scope), 0);
+      rows.push({ key: `${role.id}|${scope}`, role, scope, shared, tracked, people, nominalCapacity, cells, persons });
     }
   }
 
   return { map, rows };
 }
 
-export const SCOPE_TITLE: Record<LoadScope, string> = {
-  AMCLCT: 'AM Collection',
-  JHD: 'Johnny Debt',
-  SHARED: 'Общие люди (0,5 на две команды)',
-};
+export function scopeTitle(plan: Plan, scope: LoadScope): string {
+  if (scope === SHARED_SCOPE) return 'Общие люди — работают на несколько команд';
+  return teamName(plan.teams, scope);
+}
+
+export function scopeShort(plan: Plan, scope: LoadScope): string {
+  if (scope === SHARED_SCOPE) return 'общие';
+  return plan.teams.find((t) => t.id === scope)?.shortName ?? scope;
+}

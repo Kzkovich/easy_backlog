@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { Epic, EpicTeam, Sprint } from '../types';
+import type { Epic, Sprint, Team } from '../types';
 import { matchRoleFromExcelLabel } from './roles';
 
 // Импорт из Excel — раздел 7 спеки. Лист "Планирование 2026".
@@ -61,13 +61,22 @@ function getFillHex(cell: XLSX.CellObject | undefined): string | null {
   return null;
 }
 
-function detectTeam(title: string): EpicTeam {
+// Команда фичи — по префиксу в названии («JHD. …»). Не нашли однозначно — все команды.
+function detectTeams(title: string, teams: Team[]): string[] {
   const norm = title.toUpperCase();
-  const isJhd = /^JHD\b|JOHNNY DEBT/.test(norm);
-  const isAm = /^AM\b|AMCLCT|AM COLLECTION/.test(norm);
-  if (isJhd && !isAm) return 'JHD';
-  if (isAm && !isJhd) return 'AMCLCT';
-  return 'BOTH';
+  const hits = teams.filter((t) => {
+    const short = t.shortName.toUpperCase();
+    const name = t.name.toUpperCase();
+    return norm.startsWith(short) || (name.length > 3 && norm.includes(name));
+  });
+  return hits.length === 1 ? [hits[0].id] : teams.map((t) => t.id);
+}
+
+function sprintIndexByTeamNumber(teams: Team[], teamId: string, num: number, sprintCount: number): number | null {
+  const team = teams.find((t) => t.id === teamId);
+  if (!team) return null;
+  const idx = num - team.sprintBase;
+  return idx >= 0 && idx < sprintCount ? idx : null;
 }
 
 export interface ImportResult {
@@ -75,7 +84,7 @@ export interface ImportResult {
   warnings: string[];
 }
 
-export function parsePlanWorkbook(data: ArrayBuffer, sprints: Sprint[]): ImportResult {
+export function parsePlanWorkbook(data: ArrayBuffer, sprints: Sprint[], teams: Team[]): ImportResult {
   const wb = XLSX.read(data, { type: 'array', cellStyles: true, cellDates: true });
   const warnings: string[] = [];
   const sheetName = wb.SheetNames.find((n) => n.trim() === SHEET_NAME) ?? wb.SheetNames[0];
@@ -94,9 +103,9 @@ export function parsePlanWorkbook(data: ArrayBuffer, sprints: Sprint[]): ImportR
     const jhdCell = ws[XLSX.utils.encode_cell({ r: HEADER_ROW_JHD, c })];
     const amclctNum = typeof amclctCell?.v === 'number' ? amclctCell.v : null;
     const jhdNum = typeof jhdCell?.v === 'number' ? jhdCell.v : null;
-    let sprint = amclctNum != null ? sprints.find((s) => s.amclct === amclctNum) : undefined;
-    if (!sprint && jhdNum != null) sprint = sprints.find((s) => s.jhd === jhdNum);
-    if (sprint) colToSprintIndex.set(c, sprint.index);
+    let idx = amclctNum != null ? sprintIndexByTeamNumber(teams, 'AMCLCT', amclctNum, sprints.length) : null;
+    if (idx === null && jhdNum != null) idx = sprintIndexByTeamNumber(teams, 'JHD', jhdNum, sprints.length);
+    if (idx !== null) colToSprintIndex.set(c, idx);
   }
 
   if (colToSprintIndex.size === 0) {
@@ -130,7 +139,7 @@ export function parsePlanWorkbook(data: ArrayBuffer, sprints: Sprint[]): ImportR
       currentEpic = {
         id: `epic-${epicCounter}`,
         title: titleRaw.replace(/\s*\n\s*/g, ' ').trim(),
-        team: detectTeam(titleRaw),
+        teams: detectTeams(titleRaw, teams),
         enabled: true,
         status: 'разработка',
         effectYear: null,

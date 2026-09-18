@@ -1,28 +1,72 @@
 import { useState } from 'react';
-import type { Person, Plan, RoleId, TeamId } from '../types';
+import type { Person, Plan, RoleId, Team, TeamId } from '../types';
 import { ROLE_DEFS } from '../lib/roles';
 import { isSharedRole } from '../lib/load';
+import { sprintNumbersLabel } from '../lib/teams';
 
 interface Props {
   plan: Plan;
   updatePlan: (fn: (p: Plan) => Plan) => void;
   cutoffIndex: number;
+  currentSprint: number;
   onClose: () => void;
 }
 
 const SHARES = [0, 0.25, 0.5, 0.75, 1];
-const TEAMS: TeamId[] = ['AMCLCT', 'JHD'];
 
 function shareOf(person: Person, team: TeamId): number {
   return person.allocations.find((a) => a.team === team)?.share ?? 0;
 }
 
-function makeId(role: RoleId) {
-  return `p-${role}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+function uid(prefix: string) {
+  return `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 }
 
-export default function TeamsPanel({ plan, updatePlan, cutoffIndex, onClose }: Props) {
+function fmtCap(n: number): string {
+  return String(Math.round(n * 100) / 100).replace('.', ',');
+}
+
+export default function TeamsPanel({ plan, updatePlan, cutoffIndex, currentSprint, onClose }: Props) {
   const [absenceFor, setAbsenceFor] = useState<string | null>(null);
+  const teams = plan.teams;
+  const refSprint = currentSprint >= 0 ? currentSprint : 0;
+
+  // ——— команды ———
+
+  function mutateTeam(id: string, fn: (t: Team) => Team) {
+    updatePlan((p) => ({ ...p, teams: p.teams.map((t) => (t.id === id ? fn(t) : t)) }));
+  }
+
+  function moveTeamUp(index: number) {
+    if (index <= 0) return;
+    updatePlan((p) => {
+      const next = [...p.teams];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      return { ...p, teams: next };
+    });
+  }
+
+  function addTeam() {
+    const base = teams[0]?.sprintBase ?? 1;
+    const team: Team = { id: uid('team'), name: 'Новая команда', shortName: 'НОВ', sprintBase: base };
+    updatePlan((p) => ({ ...p, teams: [...p.teams, team] }));
+  }
+
+  function removeTeam(team: Team) {
+    if (teams.length <= 1) return;
+    const epicsCount = plan.epics.filter((e) => e.teams.includes(team.id)).length;
+    const peopleCount = plan.people.filter((p) => p.allocations.some((a) => a.team === team.id)).length;
+    const details = epicsCount || peopleCount ? `\n\nОна указана у фич: ${epicsCount}, у людей: ${peopleCount} — у них эта команда пропадёт.` : '';
+    if (!window.confirm(`Удалить команду «${team.name}»?${details}`)) return;
+    updatePlan((p) => ({
+      ...p,
+      teams: p.teams.filter((t) => t.id !== team.id),
+      epics: p.epics.map((e) => ({ ...e, teams: e.teams.filter((id) => id !== team.id) })),
+      people: p.people.map((x) => ({ ...x, allocations: x.allocations.filter((a) => a.team !== team.id) })),
+    }));
+  }
+
+  // ——— люди ———
 
   function mutatePerson(id: string, fn: (p: Person) => Person) {
     updatePlan((p) => ({ ...p, people: p.people.map((x) => (x.id === id ? fn(x) : x)) }));
@@ -32,17 +76,18 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, onClose }: P
     mutatePerson(person.id, (p) => {
       const others = p.allocations.filter((a) => a.team !== team);
       const next = share > 0 ? [...others, { team, share }] : others;
-      next.sort((a, b) => TEAMS.indexOf(a.team) - TEAMS.indexOf(b.team));
+      const order = teams.map((t) => t.id);
+      next.sort((a, b) => order.indexOf(a.team) - order.indexOf(b.team));
       return { ...p, allocations: next };
     });
   }
 
   function addPerson(role: RoleId) {
     const person: Person = {
-      id: makeId(role),
+      id: uid(`p-${role}`),
       name: 'Новый человек',
       role,
-      allocations: [{ team: 'AMCLCT', share: 1 }],
+      allocations: teams.length ? [{ team: teams[0].id, share: 1 }] : [],
       absences: [],
     };
     updatePlan((p) => ({ ...p, people: [...p.people, person] }));
@@ -66,106 +111,168 @@ export default function TeamsPanel({ plan, updatePlan, cutoffIndex, onClose }: P
   return (
     <div className="side-panel wide">
       <div className="side-panel-header">
-        <h2>Команды и люди</h2>
+        <h2>Состав команд</h2>
         <button className="btn small" onClick={onClose}>
           ✕
         </button>
       </div>
       <div className="side-panel-body">
-        <p className="hint">
-          Кто в каких командах работает и с какой долей. Доля 0,5 в обеих командах = один человек на две команды: его
-          загрузка считается суммарно, и пороги для него строже. Отпуска вычитаются из ёмкости того спринта.
-        </p>
-
-        {ROLE_DEFS.map((role) => {
-          const people = plan.people.filter((p) => p.role === role.id);
-          const shared = isSharedRole(plan, role.id);
-          const capAm = people.reduce((acc, p) => acc + shareOf(p, 'AMCLCT'), 0);
-          const capJhd = people.reduce((acc, p) => acc + shareOf(p, 'JHD'), 0);
-          return (
-            <div className="team-role-group" key={role.id}>
-              <div className="team-role-head">
-                <span className="role-dot" style={{ background: role.color }} />
-                {role.label}
-                <span className="team-role-cap">
-                  {shared
-                    ? `общий пул ${(capAm + capJhd).toFixed(2).replace(/\.?0+$/, '')} чел.`
-                    : `AMCLCT ${capAm} · JHD ${capJhd}`}
-                </span>
-              </div>
-
-              {people.length > 0 && (
-                <div className="team-col-head">
-                  <span>AMCLCT</span>
-                  <span>JHD</span>
-                  <span style={{ width: 46 }} />
-                </div>
-              )}
-
-              {people.map((person) => (
-                <div key={person.id}>
-                  <div className="team-person-row">
-                    <input
-                      type="text"
-                      value={person.name}
-                      onChange={(e) => mutatePerson(person.id, (p) => ({ ...p, name: e.target.value }))}
-                    />
-                    {TEAMS.map((team) => {
-                      const v = shareOf(person, team);
-                      return (
-                        <select
-                          key={team}
-                          className={`share-select${v === 0 ? ' zero' : ''}`}
-                          value={v}
-                          onChange={(e) => setShare(person, team, Number(e.target.value))}
-                          title={team}
-                        >
-                          {SHARES.map((s) => (
-                            <option key={s} value={s}>
-                              {s === 0 ? '—' : s}
-                            </option>
-                          ))}
-                        </select>
-                      );
-                    })}
-                    <button
-                      className={`icon-btn${absenceFor === person.id ? ' active' : ''}`}
-                      title="Отпуска и отсутствия"
-                      onClick={() => setAbsenceFor(absenceFor === person.id ? null : person.id)}
-                    >
-                      🏖 {person.absences?.length || ''}
-                    </button>
-                    <button className="icon-btn" title="Убрать из состава" onClick={() => removePerson(person)}>
-                      ✕
-                    </button>
-                  </div>
-                  {absenceFor === person.id && (
-                    <div className="absence-editor">
-                      <div className="absence-title">Отметьте спринты, когда человека нет:</div>
-                      <div className="absence-chips">
-                        {absenceSprints.map((s) => (
-                          <button
-                            key={s.index}
-                            className={`absence-chip${person.absences?.includes(s.index) ? ' on' : ''}`}
-                            onClick={() => toggleAbsence(person, s.index)}
-                          >
-                            {s.jhd}/{s.amclct}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              <div className="team-person-row">
-                <button className="role-add-btn" onClick={() => addPerson(role.id)}>
-                  + человек
+        <section className="team-section">
+          <div className="section-title">Команды</div>
+          <div className="team-table">
+            <div className="team-table-head">
+              <span />
+              <span>Название</span>
+              <span>Кратко</span>
+              <span title="Номер текущего спринта у этой команды">№ спринта сейчас</span>
+              <span />
+            </div>
+            {teams.map((team, i) => (
+              <div className="team-table-row" key={team.id}>
+                <button
+                  className="icon-btn"
+                  title="Выше — номер этой команды будет раньше в шапке"
+                  disabled={i === 0}
+                  onClick={() => moveTeamUp(i)}
+                >
+                  ↑
+                </button>
+                <input
+                  type="text"
+                  value={team.name}
+                  onChange={(e) => mutateTeam(team.id, (t) => ({ ...t, name: e.target.value }))}
+                />
+                <input
+                  type="text"
+                  value={team.shortName}
+                  onChange={(e) => mutateTeam(team.id, (t) => ({ ...t, shortName: e.target.value }))}
+                />
+                <input
+                  type="number"
+                  value={team.sprintBase + refSprint}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (Number.isFinite(v)) mutateTeam(team.id, (t) => ({ ...t, sprintBase: v - refSprint }));
+                  }}
+                />
+                <button
+                  className="icon-btn"
+                  title={teams.length <= 1 ? 'Должна остаться хотя бы одна команда' : 'Удалить команду'}
+                  disabled={teams.length <= 1}
+                  onClick={() => removeTeam(team)}
+                >
+                  ✕
                 </button>
               </div>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+          <button className="role-add-btn" onClick={addTeam}>
+            + команда
+          </button>
+        </section>
+
+        <section className="team-section">
+          <div className="section-title">Люди и их доли</div>
+          <p className="hint">
+            Доля — какую часть времени человек отдаёт команде. Если у человека доли в нескольких командах, его загрузка
+            считается суммарно по всем ним, и порог для него строже. Отпуска вычитаются из ёмкости спринта.
+          </p>
+
+          {ROLE_DEFS.map((role) => {
+            const people = plan.people.filter((p) => p.role === role.id);
+            const shared = isSharedRole(plan, role.id);
+            const caps = teams.map((t) => people.reduce((acc, p) => acc + shareOf(p, t.id), 0));
+            const total = caps.reduce((a, b) => a + b, 0);
+            return (
+              <div className="team-role-group" key={role.id}>
+                <div className="team-role-head">
+                  <span className="role-dot" style={{ background: role.color }} />
+                  {role.label}
+                  <span className="team-role-cap">
+                    {people.length === 0
+                      ? 'никого'
+                      : shared
+                        ? `общий пул ${fmtCap(total)} чел.`
+                        : teams.map((t, i) => `${t.shortName} ${fmtCap(caps[i])}`).join(' · ')}
+                  </span>
+                </div>
+
+                {people.length > 0 && (
+                  <div className="team-col-head">
+                    {teams.map((t) => (
+                      <span key={t.id} title={t.name}>
+                        {t.shortName}
+                      </span>
+                    ))}
+                    <span style={{ width: 52 }} />
+                  </div>
+                )}
+
+                {people.map((person) => (
+                  <div key={person.id}>
+                    <div className="team-person-row">
+                      <input
+                        type="text"
+                        value={person.name}
+                        onChange={(e) => mutatePerson(person.id, (p) => ({ ...p, name: e.target.value }))}
+                      />
+                      {teams.map((team) => {
+                        const v = shareOf(person, team.id);
+                        return (
+                          <select
+                            key={team.id}
+                            className={`share-select${v === 0 ? ' zero' : ''}`}
+                            value={v}
+                            onChange={(e) => setShare(person, team.id, Number(e.target.value))}
+                            title={team.name}
+                          >
+                            {SHARES.map((s) => (
+                              <option key={s} value={s}>
+                                {s === 0 ? '—' : String(s).replace('.', ',')}
+                              </option>
+                            ))}
+                          </select>
+                        );
+                      })}
+                      <button
+                        className={`icon-btn${absenceFor === person.id ? ' active' : ''}`}
+                        title="Отпуска и отсутствия"
+                        onClick={() => setAbsenceFor(absenceFor === person.id ? null : person.id)}
+                      >
+                        отп{person.absences?.length ? ` ${person.absences.length}` : ''}
+                      </button>
+                      <button className="icon-btn" title="Убрать из состава" onClick={() => removePerson(person)}>
+                        ✕
+                      </button>
+                    </div>
+                    {absenceFor === person.id && (
+                      <div className="absence-editor">
+                        <div className="absence-title">Отметьте спринты, когда человека нет:</div>
+                        <div className="absence-chips">
+                          {absenceSprints.map((s) => (
+                            <button
+                              key={s.index}
+                              className={`absence-chip${person.absences?.includes(s.index) ? ' on' : ''}`}
+                              onClick={() => toggleAbsence(person, s.index)}
+                            >
+                              {sprintNumbersLabel(teams, s.index)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                <div className="team-person-row">
+                  <button className="role-add-btn" onClick={() => addPerson(role.id)}>
+                    + человек
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </section>
       </div>
     </div>
   );

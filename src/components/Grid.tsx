@@ -5,6 +5,7 @@ import { ROLE_DEFS } from '../lib/roles';
 import { loadKey, scopesForEpicRole, type LoadResult, type LoadStatus } from '../lib/load';
 import { epicSpan, roleDurationSprints } from '../lib/duration';
 import { clampMoveDelta, clampResizeLeft, clampResizeRight, clampEpicMoveDelta, segmentOverlapsRoleInEpic } from '../lib/dnd';
+import { sprintNumbersLabel, teamsBadge } from '../lib/teams';
 import type { LoadHighlight } from './LoadPanel';
 import SegmentBar from './SegmentBar';
 import TextPopover from './TextPopover';
@@ -12,6 +13,7 @@ import TextPopover from './TextPopover';
 interface Props {
   plan: Plan;
   visibleEpics: Epic[];
+  teamFilter: string; // 'ALL' или id команды
   colWidth: number;
   mode: 'detailed' | 'management';
   cutoffIndex: number;
@@ -51,12 +53,6 @@ function formatMoney(v: number | null): string {
   return (v / 1_000_000).toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' млн ₽';
 }
 
-const TEAM_BADGE: Record<Epic['team'], string> = {
-  AMCLCT: 'AMCLCT',
-  JHD: 'JHD',
-  BOTH: 'AMCLCT + JHD',
-};
-
 function activeRolesOf(epic: Epic): RoleDef[] {
   const ids = epic.visibleRoles ?? ROLE_DEFS.map((r) => r.id);
   const set = new Set(ids);
@@ -66,6 +62,7 @@ function activeRolesOf(epic: Epic): RoleDef[] {
 export default function Grid({
   plan,
   visibleEpics,
+  teamFilter,
   colWidth,
   mode,
   cutoffIndex,
@@ -147,7 +144,7 @@ export default function Grid({
   }
 
   function segmentLoadStatus(epic: Epic, seg: Segment): LoadStatus | null {
-    const scopes = scopesForEpicRole(plan, epic.team, seg.role);
+    const scopes = scopesForEpicRole(plan, epic.teams, seg.role);
     let worst: LoadStatus | null = null;
     for (let s = seg.from; s <= seg.to; s++) {
       for (const scope of scopes) {
@@ -428,8 +425,11 @@ export default function Grid({
           </div>
         ))}
 
-        <div className="cell label-cell" style={{ gridColumn: '1 / 2', gridRow: 2 }}>
-          Эпик / роль
+        <div className="cell label-cell corner-legend" style={{ gridColumn: '1 / 2', gridRow: 2 }}>
+          <span>Фича / роль</span>
+          <span className="corner-teams" title="Порядок номеров спринта в шапке">
+            спринт: {(teamFilter === 'ALL' ? plan.teams : plan.teams.filter((t) => t.id === teamFilter)).map((t) => t.shortName).join(' / ')}
+          </span>
         </div>
         {visibleSprints.map((s, i) => (
           <div
@@ -438,9 +438,7 @@ export default function Grid({
             style={{ gridColumn: `${i + 2} / ${i + 3}`, gridRow: 2 }}
           >
             {s.index === currentSprint && <span className="now-chip">СЕЙЧАС</span>}
-            <span className="nums">
-              {s.jhd} / {s.amclct}
-            </span>
+            <span className="nums">{sprintNumbersLabel(plan.teams, s.index, teamFilter === 'ALL' ? undefined : teamFilter)}</span>
             <span className="dates">{formatDateShort(s.dateFrom)}</span>
           </div>
         ))}
@@ -505,7 +503,7 @@ export default function Grid({
                 onPointerDown={(e) => startEpicMove(e, epic)}
               >
                 <div className="epic-info-overlay">
-                  <span className="epic-badge">{TEAM_BADGE[epic.team]}</span>
+                  <span className="epic-badge">{teamsBadge(plan.teams, epic.teams)}</span>
                   <span className="epic-badge">{epic.status}</span>
                   <span>
                     эффект: {formatMoney(epic.effectYear)} / в этом году: {formatMoney(epic.effect2026)}
@@ -649,7 +647,7 @@ export default function Grid({
             <TextPopover
               x={popover.x}
               y={popover.y}
-              title={`Комментарий · спринт ${sprint.jhd}/${sprint.amclct} (${formatDateShort(sprint.dateFrom)})`}
+              title={`Комментарий · спринт ${sprintNumbersLabel(plan.teams, sprint.index)} (${formatDateShort(sprint.dateFrom)})`}
               initialText={seg.notes?.[popover.sprintIndex] ?? ''}
               onSave={(text) => {
                 mutateSegment(epic.id, seg.id, (s) => {

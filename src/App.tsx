@@ -4,27 +4,29 @@ import Grid from './components/Grid';
 import EpicFormPanel from './components/EpicFormPanel';
 import TeamsPanel from './components/TeamsPanel';
 import LoadPanel, { type LoadHighlight } from './components/LoadPanel';
+import SettingsMenu, { type Theme, type ZoomLevel } from './components/SettingsMenu';
 import { parsePlanWorkbook } from './lib/xlsxImport';
 import { computeLoad } from './lib/load';
+import { normalizePlan } from './lib/teams';
 import { currentQuarterCutoffIndex, currentSprintIndex } from './lib/calendar';
 
-type ZoomLevel = 'compact' | 'normal' | 'large';
 const ZOOM_WIDTH: Record<ZoomLevel, number> = { compact: 64, normal: 92, large: 130 };
 type ViewMode = 'detailed' | 'management';
-type TeamFilter = 'ALL' | 'AMCLCT' | 'JHD';
-type Theme = 'light' | 'dark' | 'auto';
+
+function readLocal<T extends string>(key: string, fallback: T): T {
+  return (localStorage.getItem(key) as T) || fallback;
+}
 
 export default function App() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [zoom, setZoom] = useState<ZoomLevel>('normal');
+  const [zoom, setZoom] = useState<ZoomLevel>(() => readLocal('kolbaski-zoom', 'normal'));
   const [mode, setMode] = useState<ViewMode>('detailed');
-  const [teamFilter, setTeamFilter] = useState<TeamFilter>('ALL');
-  const [hidePast, setHidePast] = useState(true);
-  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('kolbaski-theme') as Theme) || 'light');
-  const [showLoad, setShowLoad] = useState(true);
+  const [teamFilter, setTeamFilter] = useState<string>('ALL');
+  const [hidePast, setHidePast] = useState(() => localStorage.getItem('kolbaski-hide-past') !== '0');
+  const [theme, setTheme] = useState<Theme>(() => readLocal('kolbaski-theme', 'light'));
   const [showTeams, setShowTeams] = useState(false);
   const [highlight, setHighlight] = useState<LoadHighlight | null>(null);
   const [saving, setSaving] = useState(false);
@@ -40,14 +42,17 @@ export default function App() {
     localStorage.setItem('kolbaski-theme', theme);
   }, [theme]);
 
+  useEffect(() => localStorage.setItem('kolbaski-zoom', zoom), [zoom]);
+  useEffect(() => localStorage.setItem('kolbaski-hide-past', hidePast ? '1' : '0'), [hidePast]);
+
   useEffect(() => {
     fetch('/api/plan')
       .then((r) => {
         if (!r.ok) throw new Error(`Сервер вернул ${r.status}`);
         return r.json();
       })
-      .then((data: Plan) => {
-        setPlan(data);
+      .then((data) => {
+        setPlan(normalizePlan(data));
         setLoading(false);
       })
       .catch((e) => {
@@ -56,12 +61,15 @@ export default function App() {
       });
   }, []);
 
+  // Выбранная в фильтре команда могла быть удалена
+  useEffect(() => {
+    if (plan && teamFilter !== 'ALL' && !plan.teams.some((t) => t.id === teamFilter)) setTeamFilter('ALL');
+  }, [plan, teamFilter]);
+
   const updatePlan = useCallback((fn: (p: Plan) => Plan) => {
     setPlan((prev) => (prev ? fn(prev) : prev));
     setDirty(true);
   }, []);
-
-  const handleImportClick = () => fileInputRef.current?.click();
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,7 +85,7 @@ export default function App() {
       }
       try {
         const buf = await file.arrayBuffer();
-        const result = parsePlanWorkbook(buf, plan.sprints);
+        const result = parsePlanWorkbook(buf, plan.sprints, plan.teams);
         setPlan({ ...plan, epics: result.epics });
         setWarnings(result.warnings);
         setDirty(true);
@@ -91,6 +99,7 @@ export default function App() {
   const handleSave = useCallback(async () => {
     if (!plan) return;
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch('/api/plan', {
         method: 'PUT',
@@ -109,8 +118,7 @@ export default function App() {
   const panelEpic: Epic | null =
     panelTarget && panelTarget !== 'new' ? plan?.epics.find((e) => e.id === panelTarget) ?? null : null;
 
-  const visibleEpics: Epic[] =
-    plan?.epics.filter((e) => teamFilter === 'ALL' || e.team === teamFilter || e.team === 'BOTH') ?? [];
+  const visibleEpics: Epic[] = plan?.epics.filter((e) => teamFilter === 'ALL' || e.teams.includes(teamFilter)) ?? [];
 
   const load = useMemo(() => (plan ? computeLoad(plan) : null), [plan]);
   const cutoffIndex = plan ? (hidePast ? currentQuarterCutoffIndex(plan.sprints) : 0) : 0;
@@ -132,63 +140,59 @@ export default function App() {
     setPanelTarget(null);
   }
 
-  const themeLabel = theme === 'light' ? '☼' : theme === 'dark' ? '☾' : '◐';
-
   return (
     <div className="app">
       <div className="toolbar">
         <h1>Колбаски</h1>
-        <button className="btn" onClick={handleImportClick}>
-          Импорт из Excel
-        </button>
-        <input ref={fileInputRef} type="file" accept=".xlsx,.xlsm" style={{ display: 'none' }} onChange={handleFileChange} />
         <button className="btn" onClick={() => setPanelTarget('new')} disabled={!plan}>
-          + Новая фича
+          + Фича
         </button>
-        <button className="btn primary" onClick={handleSave} disabled={!plan || saving}>
-          {saving ? 'Сохранение…' : 'Сохранить'}
-        </button>
+
+        <div className="toolbar-sep" />
+
         <div className="zoom-group">
           {(['detailed', 'management'] as ViewMode[]).map((m) => (
             <button key={m} className={mode === m ? 'active' : ''} onClick={() => setMode(m)}>
-              {m === 'detailed' ? 'подробно' : 'для менеджмента'}
+              {m === 'detailed' ? 'Детально' : 'Для менеджмента'}
             </button>
           ))}
         </div>
-        <div className="zoom-group">
-          {(['ALL', 'AMCLCT', 'JHD'] as TeamFilter[]).map((t) => (
-            <button key={t} className={teamFilter === t ? 'active' : ''} onClick={() => setTeamFilter(t)}>
-              {t === 'ALL' ? 'все команды' : t === 'AMCLCT' ? 'AM Collection' : 'Johnny Debt'}
-            </button>
-          ))}
-        </div>
-        <div className="zoom-group">
-          {(['compact', 'normal', 'large'] as ZoomLevel[]).map((z) => (
-            <button key={z} className={zoom === z ? 'active' : ''} onClick={() => setZoom(z)}>
-              {z === 'compact' ? 'компактно' : z === 'normal' ? 'обычно' : 'крупно'}
-            </button>
-          ))}
-        </div>
-        <button className={`btn${hidePast ? ' active' : ''}`} onClick={() => setHidePast((v) => !v)}>
-          {hidePast ? 'прошедшие скрыты' : 'показать прошедшие'}
+
+        {plan && plan.teams.length > 1 && (
+          <select className="team-filter" value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)}>
+            <option value="ALL">Все команды</option>
+            {plan.teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <div className="spacer" />
+
+        {error && <span className="status-line error">{error}</span>}
+        <button
+          className={`btn${dirty ? ' primary' : ' saved'}`}
+          onClick={handleSave}
+          disabled={!plan || saving || !dirty}
+          title={dirty ? 'Есть несохранённые изменения' : 'Всё сохранено'}
+        >
+          {saving ? 'Сохранение…' : dirty ? 'Сохранить' : '✓ Сохранено'}
         </button>
         <button className={`btn${showTeams ? ' active' : ''}`} onClick={() => setShowTeams((v) => !v)} disabled={!plan}>
-          Команды
+          Состав команд
         </button>
-        <button className={`btn${showLoad ? ' active' : ''}`} onClick={() => setShowLoad((v) => !v)}>
-          Загрузка
-        </button>
-        <button
-          className="btn icon"
-          title={`Тема: ${theme === 'light' ? 'светлая' : theme === 'dark' ? 'тёмная' : 'системная'}`}
-          onClick={() => setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'auto' : 'light')}
-        >
-          {themeLabel}
-        </button>
-        <div className="spacer" />
-        <span className={`status-line${error ? ' error' : ''}`}>
-          {error ?? (dirty ? 'есть несохранённые изменения' : plan ? 'сохранено' : '')}
-        </span>
+        <SettingsMenu
+          zoom={zoom}
+          onZoom={setZoom}
+          hidePast={hidePast}
+          onHidePast={setHidePast}
+          theme={theme}
+          onTheme={setTheme}
+          onImport={() => fileInputRef.current?.click()}
+        />
+        <input ref={fileInputRef} type="file" accept=".xlsx,.xlsm" style={{ display: 'none' }} onChange={handleFileChange} />
       </div>
 
       {warnings.length > 0 && (
@@ -207,15 +211,16 @@ export default function App() {
           {loading && <div className="empty-state">Загрузка…</div>}
           {!loading && error && !plan && <div className="empty-state">{error}</div>}
           {!loading && plan && plan.epics.length === 0 && (
-            <div className="empty-state">Эпиков пока нет. Импортируйте план из Excel или нажмите «+ Новая фича».</div>
+            <div className="empty-state">Фич пока нет. Нажмите «+ Фича» или импортируйте план из Excel (⚙).</div>
           )}
           {!loading && plan && plan.epics.length > 0 && visibleEpics.length === 0 && (
-            <div className="empty-state">Нет фич для выбранной команды.</div>
+            <div className="empty-state">У этой команды пока нет фич.</div>
           )}
           {!loading && plan && load && visibleEpics.length > 0 && (
             <Grid
               plan={plan}
               visibleEpics={visibleEpics}
+              teamFilter={teamFilter}
               colWidth={ZOOM_WIDTH[zoom]}
               mode={mode}
               cutoffIndex={cutoffIndex}
@@ -231,7 +236,7 @@ export default function App() {
             />
           )}
 
-          {!loading && plan && load && showLoad && (
+          {!loading && plan && load && (
             <LoadPanel
               plan={plan}
               load={load}
@@ -242,18 +247,26 @@ export default function App() {
               highlight={highlight}
               onHighlight={setHighlight}
               onOpenTeams={() => setShowTeams(true)}
-              onClose={() => setShowLoad(false)}
             />
           )}
         </div>
 
         {showTeams && plan && (
-          <TeamsPanel plan={plan} updatePlan={updatePlan} cutoffIndex={cutoffIndex} onClose={() => setShowTeams(false)} />
+          <TeamsPanel
+            plan={plan}
+            updatePlan={updatePlan}
+            cutoffIndex={cutoffIndex}
+            currentSprint={currentSprint}
+            onClose={() => setShowTeams(false)}
+          />
         )}
 
-        {panelTarget && (
+        {panelTarget && plan && (
           <EpicFormPanel
+            key={panelTarget}
             epic={panelTarget === 'new' ? null : panelEpic}
+            teams={plan.teams}
+            defaultTeamIds={teamFilter === 'ALL' ? plan.teams.slice(0, 1).map((t) => t.id) : [teamFilter]}
             onSave={handleSaveEpic}
             onDelete={panelTarget !== 'new' ? handleDeleteEpic : undefined}
             onClose={() => setPanelTarget(null)}
