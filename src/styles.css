@@ -1606,43 +1606,273 @@ body {
 
 /* ——— керамический режим ——— */
 
-:root[data-theme='ceramic'] .toolbar,
-:root[data-theme='ceramic'] .settings-dropdown,
-:root[data-theme='ceramic'] .side-panel,
-:root[data-theme='ceramic'] .load-panel-header {
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.82), 0 10px 32px rgba(50, 86, 94, 0.11);
+:root[data-theme='ceramic'] .app {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+:root[data-theme='ceramic'] .app::before,
+:root[data-theme='ceramic'] .app::after {
+  position: absolute;
+  z-index: -1;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 42% 58% 66% 34% / 48% 38% 62% 52%;
+  content: '';
+  pointer-events: none;
+  filter: blur(1px);
+}
+
+:root[data-theme='ceramic'] .app::before {
+  width: 420px;
+  height: 420px;
+  left: -130px;
+  top: -170px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(98, 207, 218, 0.18));
+  box-shadow: inset 22px 18px 48px rgba(255, 255, 255, 0.82), inset -24px -20px 50px rgba(53, 143, 157, 0.12), 0 32px 70px rgba(53, 105, 115, 0.13);
+  animation: ceramic-orb-one 15s ease-in-out infinite alternate;
+}
+
+:root[data-theme='ceramic'] .app::after {
+  width: 360px;
+  height: 360px;
+  right: -125px;
+  bottom: -160px;
+  background: linear-gradient(145deg, rgba(247, 249, 255, 0.78), rgba(145, 117, 205, 0.2));
+  box-shadow: inset 18px 16px 42px rgba(255, 255, 255, 0.7), inset -22px -18px 48px rgba(99, 76, 159, 0.12), 0 30px 68px rgba(73, 78, 133, 0.12);
+  animation: ceramic-orb-two 18s ease-in-out infinite alternate;
+}
+
+:root[data-theme='ceramic'] .toolbar {
+  margin: 11px 12px 0;
+  padding: 11px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 19px;
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.72), transparent 38%),
+    linear-gradient(180deg, rgba(251, 255, 255, 0.94), rgba(225, 238, 240, 0.9));
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.95),
+    inset 0 -3px 8px rgba(83, 126, 135, 0.13),
+    0 4px 0 rgba(121, 157, 164, 0.25),
+    0 14px 32px rgba(45, 81, 89, 0.19);
+  animation: ceramic-toolbar-breathe 7s ease-in-out infinite;
+}
+
+:root[data-theme='ceramic'] .toolbar::before {
+  position: absolute;
+  width: 34%;
+  height: 2px;
+  left: 7%;
+  top: 1px;
+  border-radius: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.98), transparent);
+  content: '';
+  pointer-events: none;
 }
 
 :root[data-theme='ceramic'] .toolbar::after {
+  left: 18px;
+  right: 18px;
+  bottom: -4px;
+  height: 3px;
+  border-radius: 0 0 100% 100%;
   background-size: 220% 100%;
-  animation: ceramic-shimmer 8s ease-in-out infinite;
+  box-shadow: 0 0 16px rgba(34, 178, 195, 0.34);
+  animation: ceramic-shimmer 6s ease-in-out infinite;
+}
+
+:root[data-theme='ceramic'] .main-area {
+  position: relative;
+  z-index: 1;
+  margin: 14px 12px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 24px;
+  background: rgba(236, 246, 247, 0.74);
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.92),
+    inset 0 -8px 24px rgba(67, 111, 120, 0.08),
+    0 6px 0 rgba(107, 145, 152, 0.22),
+    0 24px 50px rgba(43, 76, 84, 0.2);
+  backdrop-filter: blur(16px) saturate(1.12);
+  animation: ceramic-rise 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+:root[data-theme='ceramic'] .center-column,
+:root[data-theme='ceramic'] .grid-scroll {
+  background-color: rgba(239, 247, 248, 0.52);
+}
+
+:root[data-theme='ceramic'] .btn,
+:root[data-theme='ceramic'] .team-filter,
+:root[data-theme='ceramic'] .zoom-group {
+  border-color: rgba(103, 143, 151, 0.36);
+  background: linear-gradient(180deg, #ffffff, #e0ecee);
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.95),
+    inset 0 -3px 5px rgba(76, 119, 128, 0.15),
+    0 3px 0 rgba(121, 158, 165, 0.38),
+    0 7px 13px rgba(47, 82, 89, 0.14);
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 180ms ease, filter 180ms ease;
+}
+
+:root[data-theme='ceramic'] .btn:hover:not(:disabled),
+:root[data-theme='ceramic'] .team-filter:hover {
+  border-color: rgba(27, 164, 178, 0.55);
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.98),
+    inset 0 -3px 5px rgba(76, 119, 128, 0.13),
+    0 5px 0 rgba(91, 151, 160, 0.4),
+    0 12px 22px rgba(34, 104, 116, 0.2);
+  filter: saturate(1.08);
+  transform: translateY(-2px);
+}
+
+:root[data-theme='ceramic'] .btn:active:not(:disabled),
+:root[data-theme='ceramic'] .team-filter:active {
+  box-shadow: inset 0 3px 7px rgba(60, 101, 109, 0.2), 0 1px 0 rgba(102, 145, 152, 0.32);
+  transform: translateY(2px) scale(0.985);
+}
+
+:root[data-theme='ceramic'] .btn.primary,
+:root[data-theme='ceramic'] .btn.active,
+:root[data-theme='ceramic'] .zoom-group button.active {
+  border-color: rgba(255, 255, 255, 0.38);
+  background: var(--grad);
+  background-size: 180% 100%;
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.42),
+    inset 0 -4px 7px rgba(34, 43, 107, 0.24),
+    0 3px 0 rgba(46, 99, 142, 0.48),
+    0 9px 18px rgba(31, 110, 139, 0.24);
+  animation: ceramic-button-glow 5s ease-in-out infinite;
+}
+
+:root[data-theme='ceramic'] .settings-dropdown,
+:root[data-theme='ceramic'] .role-menu,
+:root[data-theme='ceramic'] .text-popover {
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 17px;
+  background: linear-gradient(145deg, rgba(250, 255, 255, 0.97), rgba(222, 236, 238, 0.95));
+  box-shadow:
+    inset 0 2px 1px rgba(255, 255, 255, 0.95),
+    inset 0 -5px 14px rgba(64, 109, 118, 0.11),
+    0 7px 0 rgba(107, 148, 155, 0.22),
+    0 22px 48px rgba(37, 72, 80, 0.25);
+  animation: ceramic-pop 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 :root[data-theme='ceramic'] .label-cell,
 :root[data-theme='ceramic'] .quarter-cell,
 :root[data-theme='ceramic'] .sprint-header-cell {
-  background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.46), rgba(214, 231, 232, 0.12));
+  background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.84), rgba(210, 228, 231, 0.7));
+  box-shadow: inset 0 2px rgba(255, 255, 255, 0.72), inset 0 -3px 7px rgba(67, 109, 118, 0.09), 2px 0 7px var(--sticky-shadow);
+}
+
+:root[data-theme='ceramic'] .epic-header-label,
+:root[data-theme='ceramic'] .epic-header-track {
+  background: linear-gradient(180deg, rgba(248, 252, 252, 0.96), rgba(214, 228, 231, 0.9));
+  box-shadow: inset 0 2px rgba(255, 255, 255, 0.76), inset 0 -4px 8px rgba(69, 111, 120, 0.1);
+}
+
+:root[data-theme='ceramic'] .epic-header-label {
+  text-shadow: 0 1px rgba(255, 255, 255, 0.88);
+}
+
+:root[data-theme='ceramic'] .sprint-header-cell.current,
+:root[data-theme='ceramic'] .grid-marker.current-block {
+  animation: ceramic-current 4.5s ease-in-out infinite;
 }
 
 :root[data-theme='ceramic'] .segment-bar {
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.42), 0 4px 10px rgba(39, 83, 93, 0.14);
+  top: 2px;
+  bottom: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 3px 2px rgba(255, 255, 255, 0.48),
+    inset 0 -4px 6px rgba(24, 46, 70, 0.24),
+    0 4px 0 rgba(58, 83, 102, 0.32),
+    0 9px 15px rgba(34, 66, 77, 0.19);
+  transform-origin: center bottom;
+  animation: ceramic-bar-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
   transition: filter 180ms ease, transform 180ms ease, box-shadow 180ms ease;
 }
 
+:root[data-theme='ceramic'] .segment-bar::after {
+  position: absolute;
+  width: 45%;
+  height: 180%;
+  left: -65%;
+  top: -40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.36), transparent);
+  content: '';
+  pointer-events: none;
+  transform: skewX(-20deg);
+  animation: ceramic-bar-glint 7s ease-in-out infinite;
+}
+
 :root[data-theme='ceramic'] .segment-bar:hover {
-  filter: saturate(1.08) brightness(1.035);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.55), 0 6px 16px rgba(39, 83, 93, 0.2);
-  transform: translateY(-1px);
+  filter: saturate(1.14) brightness(1.06);
+  box-shadow:
+    inset 0 3px 2px rgba(255, 255, 255, 0.58),
+    inset 0 -4px 6px rgba(24, 46, 70, 0.2),
+    0 6px 0 rgba(52, 79, 98, 0.32),
+    0 14px 22px rgba(34, 66, 77, 0.24);
+  transform: translateY(-3px) scale(1.012);
+}
+
+:root[data-theme='ceramic'] .segment-bar:active {
+  box-shadow: inset 0 4px 7px rgba(28, 51, 69, 0.25), 0 2px 0 rgba(52, 79, 98, 0.34);
+  transform: translateY(2px) scale(0.995);
+}
+
+:root[data-theme='ceramic'] .load-panel {
+  border-top: 1px solid rgba(255, 255, 255, 0.9);
+  background: linear-gradient(180deg, rgba(247, 252, 252, 0.94), rgba(222, 236, 238, 0.92));
+  box-shadow: inset 0 4px 12px rgba(255, 255, 255, 0.7), 0 -5px 18px rgba(49, 91, 99, 0.13);
+}
+
+:root[data-theme='ceramic'] .load-panel-header {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(223, 237, 239, 0.92));
+  box-shadow: inset 0 2px rgba(255, 255, 255, 0.9), inset 0 -3px 7px rgba(64, 108, 116, 0.11), 0 4px 12px rgba(47, 86, 94, 0.1);
+}
+
+:root[data-theme='ceramic'] .load-cell:not(.idle):hover,
+:root[data-theme='ceramic'] .person-cell:not(.absent):hover {
+  z-index: 2;
+  border-radius: 7px;
+  box-shadow: inset 0 2px rgba(255, 255, 255, 0.62), 0 5px 12px rgba(43, 81, 89, 0.16);
+  transform: translateY(-2px) scale(1.035);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+:root[data-theme='ceramic'] .side-panel {
+  margin: 10px 10px 10px 0;
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(249, 253, 253, 0.98), rgba(218, 233, 235, 0.95));
+  box-shadow: inset 0 2px rgba(255, 255, 255, 0.92), inset 0 -6px 16px rgba(64, 108, 116, 0.11), -8px 10px 28px rgba(38, 76, 84, 0.2);
+  animation: ceramic-panel-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+:root[data-theme='ceramic'] .account-avatar {
+  border-radius: 11px;
+  box-shadow: inset 0 2px rgba(255, 255, 255, 0.42), inset 0 -3px 5px rgba(24, 44, 98, 0.23), 0 4px 0 rgba(49, 89, 132, 0.4), 0 9px 16px rgba(45, 87, 113, 0.25);
+  animation: ceramic-avatar-float 5s ease-in-out infinite;
 }
 
 :root[data-theme='ceramic'] .grid-scroll::after {
   position: sticky;
   left: calc(100% - 3px);
   top: 0;
-  width: 3px;
+  width: 4px;
   height: 100%;
   display: block;
-  background: linear-gradient(180deg, transparent, rgba(68, 194, 204, 0.5), transparent);
+  border-radius: 999px;
+  background: linear-gradient(180deg, transparent, rgba(68, 194, 204, 0.78), transparent);
+  box-shadow: 0 0 14px rgba(68, 194, 204, 0.42);
   content: '';
   pointer-events: none;
   animation: ceramic-pulse 6s ease-in-out infinite;
@@ -1933,6 +2163,64 @@ body {
 @keyframes ceramic-pulse {
   0%, 100% { opacity: 0.18; }
   50% { opacity: 0.7; }
+}
+
+@keyframes ceramic-orb-one {
+  0% { border-radius: 42% 58% 66% 34% / 48% 38% 62% 52%; transform: translate3d(0, 0, 0) rotate(-7deg); }
+  50% { border-radius: 58% 42% 38% 62% / 35% 57% 43% 65%; transform: translate3d(34px, 24px, 0) rotate(8deg); }
+  100% { border-radius: 48% 52% 57% 43% / 61% 42% 58% 39%; transform: translate3d(14px, 52px, 0) rotate(17deg); }
+}
+
+@keyframes ceramic-orb-two {
+  0% { border-radius: 53% 47% 38% 62% / 44% 58% 42% 56%; transform: translate3d(0, 0, 0) rotate(8deg); }
+  50% { border-radius: 37% 63% 55% 45% / 62% 37% 63% 38%; transform: translate3d(-34px, -18px, 0) rotate(-11deg); }
+  100% { border-radius: 61% 39% 47% 53% / 41% 63% 37% 59%; transform: translate3d(-12px, -48px, 0) rotate(-19deg); }
+}
+
+@keyframes ceramic-toolbar-breathe {
+  0%, 100% { box-shadow: inset 0 2px 1px rgba(255, 255, 255, 0.95), inset 0 -3px 8px rgba(83, 126, 135, 0.13), 0 4px 0 rgba(121, 157, 164, 0.25), 0 14px 32px rgba(45, 81, 89, 0.17); }
+  50% { box-shadow: inset 0 2px 1px rgba(255, 255, 255, 1), inset 0 -3px 8px rgba(83, 126, 135, 0.1), 0 5px 0 rgba(93, 155, 165, 0.29), 0 18px 40px rgba(36, 102, 114, 0.22); }
+}
+
+@keyframes ceramic-rise {
+  from { opacity: 0; transform: translateY(18px) scale(0.986); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ceramic-pop {
+  from { opacity: 0; transform: translateY(-8px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ceramic-panel-in {
+  from { opacity: 0; transform: translateX(32px) rotateY(-4deg); }
+  to { opacity: 1; transform: translateX(0) rotateY(0); }
+}
+
+@keyframes ceramic-bar-in {
+  from { opacity: 0; transform: translateY(7px) scaleY(0.72); }
+  to { opacity: 1; transform: translateY(0) scaleY(1); }
+}
+
+@keyframes ceramic-bar-glint {
+  0%, 58% { left: -65%; opacity: 0; }
+  66% { opacity: 0.75; }
+  82%, 100% { left: 120%; opacity: 0; }
+}
+
+@keyframes ceramic-button-glow {
+  0%, 100% { background-position: 0 0; filter: saturate(1); }
+  50% { background-position: 100% 0; filter: saturate(1.12) brightness(1.03); }
+}
+
+@keyframes ceramic-current {
+  0%, 100% { filter: saturate(1); box-shadow: inset 0 0 0 rgba(20, 170, 184, 0); }
+  50% { filter: saturate(1.18); box-shadow: inset 0 0 22px rgba(20, 170, 184, 0.13); }
+}
+
+@keyframes ceramic-avatar-float {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-2px) rotate(2deg); }
 }
 
 @keyframes orbit-turn {
