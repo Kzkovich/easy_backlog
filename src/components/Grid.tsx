@@ -14,6 +14,7 @@ import SegmentEditorPopover from './SegmentEditorPopover';
 interface Props {
   plan: Plan;
   visibleEpics: Epic[];
+  comparisonBase?: Epic[];
   teamFilter: string; // 'ALL' или id команды
   colWidth: number;
   mode: 'detailed' | 'management';
@@ -91,6 +92,7 @@ function activeRolesOf(epic: Epic, roles: RoleDef[]): RoleDef[] {
 export default function Grid({
   plan,
   visibleEpics,
+  comparisonBase,
   teamFilter,
   colWidth,
   mode,
@@ -645,6 +647,7 @@ export default function Grid({
         ))}
 
         {visibleEpics.map((epic) => {
+          const baseEpic = comparisonBase?.find((item) => item.id === epic.id);
           const isCollapsed = collapsed.has(epic.id);
           const headerRow = rowCounter++;
           const span = epicSpan(epic);
@@ -670,7 +673,8 @@ export default function Grid({
             ? activeRoles.map((role, roleIndex) => {
                 const row = rowCounter++;
                 const segs = epic.segments.filter((s) => s.role === role.id);
-                return { role, roleIndex, row, segs };
+                const baseSegs = baseEpic?.segments.filter((s) => s.role === role.id) ?? [];
+                return { role, roleIndex, row, segs, baseSegs };
               })
             : [];
           const roleAddRow = showRoleRows && hiddenRoles.length > 0 ? rowCounter++ : null;
@@ -836,7 +840,7 @@ export default function Grid({
                 </div>
               </div>
 
-              {roleRows.map(({ role, roleIndex, row, segs }) => (
+              {roleRows.map(({ role, roleIndex, row, segs, baseSegs }) => (
                 <div key={role.id} style={{ display: 'contents' }}>
                   <div className="cell label-cell role-label-cell" style={{ gridColumn: '1 / 2', gridRow: row }}>
                     <span className="role-label-text">{role.label}</span>
@@ -890,6 +894,11 @@ export default function Grid({
                     aria-label={`${role.label}, фича «${epic.title}». Enter или пробел — добавить колбаску в ближайший свободный спринт`}
                     title="Двойной клик по свободному месту — добавить колбаску"
                   >
+                    {baseSegs.map((segment) => {
+                      const disp = toDisplayRange(segment.from, segment.to);
+                      if (!disp) return null;
+                      return <span key={`base-${segment.id}`} className="scenario-grid-base" style={{ left: disp.from * colWidth + 3, width: (disp.to - disp.from + 1) * colWidth - 6 }} aria-label={`Исходное положение колбаски «${segment.label || 'без названия'}»`} />;
+                    })}
                     {segs.map((seg) => {
                       const real = liveRealRange(epic, seg);
                       const disp = toDisplayRange(real.from, real.to);

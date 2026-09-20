@@ -57,7 +57,7 @@ function segmentChange(before?: Segment, after?: Segment): SegmentChange {
 function featureChange(before?: Epic, after?: Epic): FeatureChange {
   const id = after?.id ?? before!.id;
   const title = after?.title ?? before!.title;
-  const teams = after?.teams ?? before!.teams;
+  const teams = [...new Set([...(before?.teams ?? []), ...(after?.teams ?? [])])];
   const beforeSegments = byId(before?.segments ?? []);
   const afterSegments = byId(after?.segments ?? []);
   const segmentIds = [...beforeSegments.keys(), ...afterSegments.keys()].filter((id, index, ids) => ids.indexOf(id) === index);

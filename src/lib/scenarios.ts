@@ -18,5 +18,7 @@ export function createScenario(plan: Plan, name: string): Scenario {
 
 export function applyScenarioEpics(current: Epic[], proposed: Epic[], selectedIds: Set<string>): Epic[] {
   const proposedById = new Map(proposed.map((epic) => [epic.id, epic]));
-  return current.map((epic) => (selectedIds.has(epic.id) && proposedById.has(epic.id) ? structuredClone(proposedById.get(epic.id)!) : epic));
+  const applied = current.map((epic) => (selectedIds.has(epic.id) && proposedById.has(epic.id) ? structuredClone(proposedById.get(epic.id)!) : epic));
+  const additions = proposed.filter((epic) => selectedIds.has(epic.id) && !current.some((currentEpic) => currentEpic.id === epic.id));
+  return [...applied, ...structuredClone(additions)];
 }

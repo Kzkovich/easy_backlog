@@ -25,4 +25,10 @@ describe('applyScenarioEpics', () => {
 
     expect(actual.map((item) => [item.id, item.segments[0].from])).toEqual([['a', 4], ['b', 1]]);
   });
+
+  it('adds a selected proposed feature missing from the current plan', () => {
+    const actual = applyScenarioEpics([epic('a', 1)], [epic('a', 1), epic('new', 4)], new Set(['new']));
+
+    expect(actual.map((item) => item.id)).toEqual(['a', 'new']);
+  });
 });

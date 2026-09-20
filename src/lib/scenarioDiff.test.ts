@@ -37,6 +37,12 @@ describe('diffScenario', () => {
     expect(filterDiffByTeam(diff, 'team-b').features).toHaveLength(1);
   });
 
+  it('keeps a feature visible to a team it leaves', () => {
+    const diff = diffScenario(snapshot([epic('feature', ['team-a', 'team-b'], 2, 3)]), snapshot([epic('feature', ['team-b'], 2, 3)]));
+
+    expect(filterDiffByTeam(diff, 'team-a').features).toHaveLength(1);
+  });
+
   it('describes segments removed from a proposal', () => {
     const base = epic('feature', ['team-a'], 2, 3);
     const proposal = { ...base, segments: [] };

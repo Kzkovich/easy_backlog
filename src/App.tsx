@@ -231,6 +231,23 @@ export default function App() {
     if (scenario) setSchedulerDraft({ mode: 'comfortable', scenario });
   }
 
+  function duplicateScenario(scenario: Scenario) {
+    const copy: Scenario = {
+      ...structuredClone(scenario),
+      id: crypto.randomUUID(),
+      name: `${scenario.name} — копия`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    saveScenario(copy);
+    setSchedulerDraft({ mode: schedulerDraft?.mode ?? 'comfortable', scenario: copy });
+  }
+
+  function deleteScenario(id: string) {
+    updatePlan((p) => ({ ...p, scenarios: p.scenarios.filter((scenario) => scenario.id !== id) }));
+    setSchedulerDraft(null);
+  }
+
   function applyScheduler(draftEpics: Epic[], selectedIds: Set<string>, scenario: Scenario) {
     if (!plan) return;
     const savedScenario = { ...scenario, snapshot: { ...scenario.snapshot, epics: structuredClone(draftEpics) }, updatedAt: new Date().toISOString() };
@@ -477,6 +494,8 @@ export default function App() {
           teamFilter={teamFilter}
           onApply={applyScheduler}
           onSaveScenario={saveScenario}
+          onDuplicateScenario={duplicateScenario}
+          onDeleteScenario={deleteScenario}
           onDiscard={() => setSchedulerDraft(null)}
         />
       )}

@@ -3150,6 +3150,10 @@ body {
 .scenario-proposal-bar { width: 16px; height: 6px; border-radius: 5px; display: inline-block; }
 .scenario-base-bar { background: color-mix(in srgb, var(--text-dim) 32%, transparent); border: 1px dashed var(--text-dim); }
 .scenario-proposal-bar { background: linear-gradient(145deg, var(--accent), color-mix(in srgb, var(--accent) 56%, #fff)); box-shadow: 0 2px 5px color-mix(in srgb, var(--accent) 30%, transparent); }
+.scenario-grid-base { position: absolute; top: 8px; height: 22px; box-sizing: border-box; border: 1px dashed color-mix(in srgb, var(--text-dim) 70%, transparent); border-radius: 9px; background: color-mix(in srgb, var(--text-dim) 12%, transparent); opacity: .78; pointer-events: none; z-index: 1; }
+.role-track .segment-bar { z-index: 2; }
+.scenario-name-field { display: grid; gap: 2px; color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.scenario-name-field input { min-width: 210px; padding: 4px 7px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel); color: var(--text); font: inherit; text-transform: none; letter-spacing: normal; }
 
 .scheduler-epic-check {
   display: flex;
