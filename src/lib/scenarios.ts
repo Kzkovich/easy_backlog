@@ -1,4 +1,4 @@
-import type { Plan, Scenario } from '../types';
+import type { Epic, Plan, Scenario } from '../types';
 
 export function createScenario(plan: Plan, name: string): Scenario {
   const snapshot = {
@@ -14,4 +14,9 @@ export function createScenario(plan: Plan, name: string): Scenario {
     baseSnapshot: structuredClone(snapshot),
     snapshot,
   };
+}
+
+export function applyScenarioEpics(current: Epic[], proposed: Epic[], selectedIds: Set<string>): Epic[] {
+  const proposedById = new Map(proposed.map((epic) => [epic.id, epic]));
+  return current.map((epic) => (selectedIds.has(epic.id) && proposedById.has(epic.id) ? structuredClone(proposedById.get(epic.id)!) : epic));
 }

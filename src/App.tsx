@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Epic, Plan, ScenarioSnapshot, Segment } from './types';
+import type { Epic, Plan, Scenario, Segment } from './types';
 import Grid from './components/Grid';
 import EpicFormPanel from './components/EpicFormPanel';
 import TeamsPanel from './components/TeamsPanel';
@@ -12,6 +12,7 @@ import { computeLoad } from './lib/load';
 import { normalizePlan } from './lib/teams';
 import { runScheduler, type SchedulerMode } from './lib/scheduler';
 import { currentQuarterCutoffIndex, currentSprintIndex } from './lib/calendar';
+import { applyScenarioEpics, createScenario } from './lib/scenarios';
 
 const ZOOM_WIDTH: Record<ZoomLevel, number> = { compact: 64, normal: 92 };
 type ViewMode = 'detailed' | 'management';
@@ -47,7 +48,7 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [panelTarget, setPanelTarget] = useState<string | 'new' | null>(null);
-  const [schedulerDraft, setSchedulerDraft] = useState<{ mode: SchedulerMode; snapshot: ScenarioSnapshot } | null>(null);
+  const [schedulerDraft, setSchedulerDraft] = useState<{ mode: SchedulerMode; scenario: Scenario } | null>(null);
   const [lastDeleted, setLastDeleted] = useState<LastDeleted>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const teamsButtonRef = useRef<HTMLButtonElement>(null);
@@ -209,15 +210,31 @@ export default function App() {
     setLastDeleted(null);
   }
 
-  function applyScheduler(draftEpics: Epic[], selectedIds: Set<string>) {
-    if (!plan) return;
+  function saveScenario(scenario: Scenario) {
     updatePlan((p) => ({
       ...p,
-      epics: p.epics.map((e) => {
-        const draftEpic = draftEpics.find((d) => d.id === e.id);
-        return draftEpic && selectedIds.has(e.id) ? { ...e, segments: draftEpic.segments } : e;
-      }),
+      scenarios: p.scenarios.some((item) => item.id === scenario.id)
+        ? p.scenarios.map((item) => (item.id === scenario.id ? scenario : item))
+        : [...p.scenarios, scenario],
     }));
+  }
+
+  function startScheduler(mode: SchedulerMode) {
+    if (!plan) return;
+    const scenario = createScenario(plan, mode === 'comfortable' ? 'Комфортный вариант' : 'Экстренный вариант');
+    scenario.snapshot = runScheduler(plan, mode);
+    setSchedulerDraft({ mode, scenario });
+  }
+
+  function openScenario(id: string) {
+    const scenario = plan?.scenarios.find((item) => item.id === id);
+    if (scenario) setSchedulerDraft({ mode: 'comfortable', scenario });
+  }
+
+  function applyScheduler(draftEpics: Epic[], selectedIds: Set<string>, scenario: Scenario) {
+    if (!plan) return;
+    const savedScenario = { ...scenario, snapshot: { ...scenario.snapshot, epics: structuredClone(draftEpics) }, updatedAt: new Date().toISOString() };
+    updatePlan((p) => ({ ...p, epics: applyScenarioEpics(p.epics, draftEpics, selectedIds), scenarios: p.scenarios.some((item) => item.id === savedScenario.id) ? p.scenarios.map((item) => item.id === savedScenario.id ? savedScenario : item) : [...p.scenarios, savedScenario] }));
     setSchedulerDraft(null);
   }
 
@@ -290,7 +307,7 @@ export default function App() {
         <div className="toolbar-sep" />
         <button
           className="btn"
-          onClick={() => setSchedulerDraft({ mode: 'comfortable', snapshot: runScheduler(plan!, 'comfortable') })}
+          onClick={() => startScheduler('comfortable')}
           disabled={!plan}
           title="Перепланировать будущие сегменты без перегрузок"
         >
@@ -298,12 +315,21 @@ export default function App() {
         </button>
         <button
           className="btn"
-          onClick={() => setSchedulerDraft({ mode: 'emergency', snapshot: runScheduler(plan!, 'emergency') })}
+          onClick={() => startScheduler('emergency')}
           disabled={!plan}
           title="Перепланировать в максимально сжатые сроки (перегруз допускается)"
         >
           Экстренно
         </button>
+        {plan && plan.scenarios.length > 0 && (
+          <select className="team-filter" aria-label="Сохранённый вариант" defaultValue="" onChange={(e) => {
+            if (e.target.value) openScenario(e.target.value);
+            e.currentTarget.value = '';
+          }}>
+            <option value="">Открыть вариант…</option>
+            {plan.scenarios.map((scenario) => <option value={scenario.id} key={scenario.id}>{scenario.name}</option>)}
+          </select>
+        )}
 
         <div className="spacer" />
 
@@ -443,13 +469,14 @@ export default function App() {
         <SchedulerCompare
           plan={plan}
           mode={schedulerDraft.mode}
-          snapshot={schedulerDraft.snapshot}
+          scenario={schedulerDraft.scenario}
           viewMode={mode}
           colWidth={ZOOM_WIDTH[zoom]}
           cutoffIndex={cutoffIndex}
           currentSprint={currentSprint}
           teamFilter={teamFilter}
           onApply={applyScheduler}
+          onSaveScenario={saveScenario}
           onDiscard={() => setSchedulerDraft(null)}
         />
       )}
