@@ -4,6 +4,7 @@ import { promisify } from 'node:util';
 import { readFile, writeFile, mkdir, readdir, unlink, stat, rename } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createShareStore } from './shareStore.mjs';
 
 const scrypt = promisify(scryptCallback);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,6 +24,7 @@ const PORT = Number(process.env.KOLBASKI_API_PORT || 5175);
 const sessions = new Map();
 const attempts = new Map();
 let authMutation = Promise.resolve();
+let shareStore;
 
 async function ensureDirs() {
   await mkdir(DATA_DIR, { recursive: true });
@@ -274,8 +276,9 @@ async function withAuthMutation(fn) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    const pathname = new URL(req.url || '/', 'http://localhost').pathname;
-    if (req.method === 'OPTIONS') return send(res, 204, undefined, { Allow: 'GET,POST,PUT,OPTIONS' });
+    const url = new URL(req.url || '/', 'http://localhost');
+    const pathname = url.pathname;
+    if (req.method === 'OPTIONS') return send(res, 204, undefined, { Allow: 'GET,POST,PUT,PATCH,DELETE,OPTIONS' });
 
     if (pathname === '/api/auth/session' && req.method === 'GET') return send(res, 200, { user: sessionUser(req) });
 
@@ -321,6 +324,53 @@ const server = http.createServer(async (req, res) => {
     if (!user) return send(res, 401, { error: 'Нужно войти в аккаунт.' });
     const paths = userPaths(user.id);
 
+    if (pathname === '/api/share-link' && req.method === 'POST') {
+      if (!checkRateLimit(req, 'share-link')) return send(res, 429, { error: 'Слишком много попыток. Попробуйте позже.' });
+      const link = await shareStore.createShareLink(user.id);
+      return send(res, 201, { url: `/share/${link.token}`, createdAt: link.createdAt });
+    }
+
+    if (pathname === '/api/share-link' && req.method === 'GET') return send(res, 200, { link: await shareStore.linkStatus(user.id) });
+
+    if (pathname === '/api/share-link' && req.method === 'DELETE') {
+      await shareStore.revokeShare(user.id);
+      return send(res, 200, { ok: true });
+    }
+
+    const sharedPlan = pathname.match(/^\/api\/shared\/([^/]+)\/plan$/);
+    if (sharedPlan && req.method === 'GET') {
+      if (!checkRateLimit(req, 'shared-read')) return send(res, 429, { error: 'Слишком много попыток. Попробуйте позже.' });
+      const shared = await shareStore.resolveShare(sharedPlan[1]);
+      if (!shared) return send(res, 404, { error: 'Ссылка недействительна или отозвана.' });
+      const plan = await readJson(userPaths(shared.ownerId).plan, null);
+      if (!plan) return send(res, 404, { error: 'Ссылка недействительна или отозвана.' });
+      return send(res, 200, { plan, ownerId: shared.ownerId });
+    }
+
+    const sharedComments = pathname.match(/^\/api\/shared\/([^/]+)\/comments(?:\/([^/]+))?$/);
+    if (sharedComments) {
+      const shared = await shareStore.resolveShare(sharedComments[1]);
+      if (!shared) return send(res, 404, { error: 'Ссылка недействительна или отозвана.' });
+      const ownerId = shared.ownerId;
+      if (!sharedComments[2] && req.method === 'GET') {
+        return send(res, 200, { comments: await shareStore.listComments(ownerId, { epicId: url.searchParams.get('epicId'), segmentId: url.searchParams.get('segmentId') }) });
+      }
+      if (!sharedComments[2] && req.method === 'POST') {
+        if (!checkRateLimit(req, 'shared-comment')) return send(res, 429, { error: 'Слишком много попыток. Попробуйте позже.' });
+        const input = await readJsonBody(req);
+        return send(res, 201, { comment: await shareStore.createComment(ownerId, { ...input, authorId: user.id, authorName: user.username }) });
+      }
+      if (sharedComments[2] && req.method === 'PATCH') {
+        const { resolved } = await readJsonBody(req);
+        if (typeof resolved !== 'boolean') return send(res, 400, { error: 'Нужен статус комментария.' });
+        return send(res, 200, { comment: await shareStore.setCommentResolved(ownerId, sharedComments[2], user, resolved) });
+      }
+      if (sharedComments[2] && req.method === 'DELETE') {
+        await shareStore.deleteComment(ownerId, sharedComments[2], user);
+        return send(res, 200, { ok: true });
+      }
+    }
+
     if (pathname === '/api/plan' && req.method === 'GET') {
       const raw = await readFile(paths.plan, 'utf-8');
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
@@ -345,5 +395,6 @@ const server = http.createServer(async (req, res) => {
 
 ensureDirs().then(async () => {
   await ensureOwnerAccount();
+  shareStore = await createShareStore({ dataDir: DATA_DIR });
   server.listen(PORT, () => console.log(`[server] Kolbaski API on http://localhost:${PORT}`));
 });
