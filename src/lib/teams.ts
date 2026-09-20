@@ -1,4 +1,4 @@
-import type { Epic, Plan, RoleDef, Segment, Team } from '../types';
+import type { Epic, Plan, RoleDef, Scenario, ScenarioSnapshot, Segment, Team } from '../types';
 import { DEFAULT_ROLES } from './roles';
 import { defaultPipeline } from './scheduler';
 
@@ -95,6 +95,27 @@ function normalizePlannedRange(e: any, maxIndex: number): { plannedFrom?: number
   };
 }
 
+function normalizeScenario(raw: any): Scenario {
+  const snapshot: ScenarioSnapshot = {
+    epics: Array.isArray(raw?.snapshot?.epics) ? raw.snapshot.epics : [],
+    people: Array.isArray(raw?.snapshot?.people) ? raw.snapshot.people : [],
+  };
+  const baseRaw = raw?.baseSnapshot ?? snapshot;
+  const baseSnapshot: ScenarioSnapshot = {
+    epics: Array.isArray(baseRaw?.epics) ? structuredClone(baseRaw.epics) : [],
+    people: Array.isArray(baseRaw?.people) ? structuredClone(baseRaw.people) : [],
+  };
+  const createdAt = typeof raw?.createdAt === 'string' ? raw.createdAt : new Date(0).toISOString();
+  return {
+    id: String(raw?.id || crypto.randomUUID()),
+    name: typeof raw?.name === 'string' && raw.name.trim() ? raw.name.trim() : 'Вариант без названия',
+    snapshot,
+    baseSnapshot,
+    createdAt,
+    updatedAt: typeof raw?.updatedAt === 'string' ? raw.updatedAt : createdAt,
+  };
+}
+
 export function normalizePlan(raw: any): Plan {
   const rawTeams: any[] = raw.teams ?? [];
   const isLegacy = rawTeams.length > 0 && rawTeams.every((t) => typeof t.sprintBase !== 'number');
@@ -167,7 +188,7 @@ export function normalizePlan(raw: any): Plan {
     roles,
     epics,
     people: raw.people ?? [],
-    scenarios: raw.scenarios ?? [],
+    scenarios: Array.isArray(raw.scenarios) ? raw.scenarios.map(normalizeScenario) : [],
     settings: {
       ...raw.settings,
       thresholds: {

@@ -3,6 +3,7 @@ import type { Plan, Epic } from '../types';
 import { buildSprints, currentSprintIndex } from './calendar';
 import { computeLoad } from './load';
 import { defaultPipeline, pipelineForEpic, stageFloor, runScheduler, distributeEpic } from './scheduler';
+import { normalizePlan } from './teams';
 
 describe('defaultPipeline', () => {
   it('has six stages in the documented order', () => {
@@ -75,6 +76,19 @@ function makePlan(overrides: Partial<Plan> = {}): Plan {
     ...overrides,
   };
 }
+
+describe('scenario compatibility', () => {
+  it('normalizes a legacy scenario snapshot as an immutable base', () => {
+    const plan = normalizePlan({
+      ...makePlan(),
+      scenarios: [{ id: 'old', name: 'Старый', snapshot: { epics: [], people: [] } }],
+    });
+
+    expect(plan.scenarios[0].baseSnapshot).toEqual({ epics: [], people: [] });
+    expect(plan.scenarios[0].baseSnapshot).not.toBe(plan.scenarios[0].snapshot);
+    expect(plan.scenarios[0].createdAt).toEqual(expect.any(String));
+  });
+});
 
 describe('runScheduler comfortable', () => {
   it('does not move past segments', () => {

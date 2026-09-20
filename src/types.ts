@@ -108,6 +108,10 @@ export interface ScenarioSnapshot {
 export interface Scenario {
   id: string;
   name: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Неизменяемый план, с которым владелец сравнивает предложение. */
+  baseSnapshot: ScenarioSnapshot;
   snapshot: ScenarioSnapshot;
 }
 
